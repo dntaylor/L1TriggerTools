@@ -27,3 +27,10 @@
 *.exe
 *.out
 *.app
+
+# python
+*.pyc
+__init__.py*
+
+# vim
+*.swp
