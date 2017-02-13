@@ -9,13 +9,27 @@ options = VarParsing('analysis')
 options.outputFile = 'l1tTree.root'
 #options.inputFiles = '/store/relval/CMSSW_8_1_0_pre16/RelValTTbar_13/GEN-SIM-DIGI-RAW/81X_upgrade2017_realistic_v22-v1/10000/06AEB644-DFA6-E611-88B9-0CC47A4C8EBA.root'
 options.inputFiles = '/store/data/Run2016E/SingleElectron/MINIAOD/23Sep2016-v1/100000/00827A71-F98C-E611-9639-0CC47A4D7650.root'
+options.secondaryInputFiles = []
 options.maxEvents = -1
 options.register('isMC', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Simulation")
 options.register('skipEvents', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Events to skip")
 options.register('reportEvery', 100, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Report every")
+options.register('applyLumiMask', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Apply lumimask")
 options.register('lumimask', '/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/ReReco/Final/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt', VarParsing.multiplicity.singleton, VarParsing.varType.string, "Lumimask for data")
 
 options.parseArguments()
+
+def getSecondaryFiles(primaryFileList) :
+    secondaryFiles = []
+    for primaryFile in primaryFileList :
+        query = 'parent file=%s' % primaryFile
+        for entry in subprocess.Popen("das_client --query='parent file={0}' --limit=0".format(primaryFile), shell=True, stdout=subprocess.PIPE).communicate()[0].splitlines():
+            secondaryFiles.append(entry)
+    return secondaryFiles
+
+if not options.isMC and not options.secondaryInputFiles:
+    import subprocess
+    options.secondaryInputFiles = getSecondaryFiles(options.inputFiles)
 
 ##########################
 ### process definition ###
@@ -43,17 +57,8 @@ process.source = cms.Source("PoolSource",
     skipEvents = cms.untracked.uint32(options.skipEvents),
 )
 
-def getSecondaryFiles(primaryFileList) :
-    secondaryFiles = []
-    for primaryFile in primaryFileList :
-        query = 'parent file=%s' % primaryFile
-        for entry in subprocess.Popen("das_client --query='parent file={0}' --limit=0".format(primaryFile), shell=True, stdout=subprocess.PIPE).communicate()[0].splitlines():
-            secondaryFiles.append(entry)
-    return secondaryFiles
-
 if not options.isMC:
-    import subprocess
-    process.source.secondaryFileNames = cms.untracked.vstring(getSecondaryFiles(process.source.fileNames))
+    process.source.secondaryFileNames = cms.untracked.vstring(options.secondaryInputFiles)
 
 # output files
 process.TFileService = cms.Service("TFileService", 
@@ -67,7 +72,7 @@ GT = {'mcgt': 'auto:run2_mc', 'datagt': 'auto:run2_data'}
 process.GlobalTag = GlobalTag(process.GlobalTag, GT[envvar], '')
 
 # if data, apply lumimask
-if not options.isMC:
+if not options.isMC and options.applyLumiMask:
     import FWCore.PythonUtilities.LumiList as LumiList
     process.source.lumisToProcess = LumiList.LumiList(
         filename = options.lumimask
