@@ -7,7 +7,7 @@ from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('analysis')
 
 options.outputFile = 'l1tTree.root'
-#options.inputFiles = '/store/relval/CMSSW_8_1_0_pre16/RelValTTbar_13/GEN-SIM-DIGI-RAW/81X_upgrade2017_realistic_v22-v1/10000/06AEB644-DFA6-E611-88B9-0CC47A4C8EBA.root'
+#options.inputFiles = '/store/mc/RunIISpring16MiniAODv2/SinglePion_PT0to200/MINIAODSIM/NoPURAW_NZS_withHLT_80X_mcRun2_asymptotic_v14-v1/40000/06B6157B-D667-E611-B32E-B083FED42FE4.root'
 options.inputFiles = '/store/data/Run2016E/SingleElectron/MINIAOD/23Sep2016-v1/100000/00827A71-F98C-E611-9639-0CC47A4D7650.root'
 options.secondaryInputFiles = []
 options.maxEvents = -1
@@ -16,18 +16,26 @@ options.register('skipEvents', 0, VarParsing.multiplicity.singleton, VarParsing.
 options.register('reportEvery', 100, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Report every")
 options.register('applyLumiMask', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Apply lumimask")
 options.register('lumimask', '/afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/ReReco/Final/Cert_271036-284044_13TeV_23Sep2016ReReco_Collisions16_JSON.txt', VarParsing.multiplicity.singleton, VarParsing.varType.string, "Lumimask for data")
+options.register('redirector', '', VarParsing.multiplicity.singleton, VarParsing.varType.string, "Explicitly define redirector")
 
 options.parseArguments()
 
 def getSecondaryFiles(primaryFileList) :
+    # iteratively search for parent files matching "RAW" in datatier
+    # mc: /store/mc/[campaign]/[sample]/[datatier]/[conditions]/...
+    # data: /store/data/[run]/[sample]/[datatier]/[conditions]/...
     secondaryFiles = []
     for primaryFile in primaryFileList :
         query = 'parent file=%s' % primaryFile
         for entry in subprocess.Popen("das_client --query='parent file={0}' --limit=0".format(primaryFile), shell=True, stdout=subprocess.PIPE).communicate()[0].splitlines():
-            secondaryFiles.append(entry)
+            fnameComponents = entry.split('/')
+            if 'RAW' in fnameComponents[5]:
+                secondaryFiles.append(entry)
+            else:
+                secondaryFiles.extend(getSecondaryFiles([entry]))
     return secondaryFiles
 
-if not options.isMC and not options.secondaryInputFiles:
+if not options.secondaryInputFiles:
     import subprocess
     options.secondaryInputFiles = getSecondaryFiles(options.inputFiles)
 
@@ -52,12 +60,15 @@ process.MessageLogger.cerr.FwkReport.reportEvery = options.reportEvery
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(options.maxEvents) )
 
 # input files
+if options.redirector:
+    options.inputFiles = ['{0}/{1}'.format(options.redirector,fname) for fname in options.inputFiles]
+    options.secondaryInputFiles = ['{0}/{1}'.format(options.redirector,fname) for fname in options.secondaryInputFiles]
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(options.inputFiles),
     skipEvents = cms.untracked.uint32(options.skipEvents),
 )
 
-if not options.isMC:
+if options.secondaryInputFiles:
     process.source.secondaryFileNames = cms.untracked.vstring(options.secondaryInputFiles)
 
 # output files

@@ -47,6 +47,7 @@
 
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/Common/interface/ValueMap.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 
 #include "DataFormats/Math/interface/deltaR.h"
 
@@ -75,6 +76,12 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       double getHcalSF(double pt, int ieta);
       double getHFSF(double pt, int ieta);
 
+      void buildMatchToEcal(std::string name);
+      void buildMatchToHcal(std::string name);
+
+      void matchObjectToEcal(std::string name, const reco::Candidate& cand);
+      void matchObjectToHcal(std::string name, const reco::Candidate& cand);
+
       // ----------member data ---------------------------
 
       bool verbose_;
@@ -85,10 +92,16 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       edm::EDGetTokenT<reco::CandidateView> photonsToken_;
       edm::EDGetTokenT<edm::ValueMap<bool> > electronIdMapToken_;
       edm::EDGetTokenT<reco::CandidateView> electronPairsToken_;
+      edm::EDGetTokenT<reco::GenParticleCollection> genParticlesToken_;
       bool storeEcal_;
       bool storeHcal_;
       bool storeStage2Layer1_;
       double LSB_;
+
+      edm::Handle<EcalTrigPrimDigiCollection> ecalTPs_;
+      edm::Handle<HcalTrigPrimDigiCollection> hcalTPs_;
+
+      edm::ESHandle<CaloTPGTranscoder> decoder_;
 
       edm::Service<TFileService> fs_;
       TTree *tree_;
@@ -109,6 +122,14 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       int N_HCAL_PT_ = 9;
       int N_HF_SF_ = 12;
       int N_HF_PT_ = 5;
+
+      std::vector<std::vector<int> >    ecalTPs_compressedEt_;
+      std::vector<std::vector<double> > ecalTPs_et_;
+      std::vector<std::vector<double> > ecalTPs_correctedEt_;
+
+      std::vector<std::vector<int> >    hcalTPs_compressedEt_;
+      std::vector<std::vector<double> > hcalTPs_et_;
+      std::vector<std::vector<double> > hcalTPs_correctedEt_;
 
       // branch variables
       std::vector<int> ecalDigiEta_;
@@ -139,44 +160,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
       uint32_t expectedTotalET_;
 
-      std::vector<float> electronPt_;
-      std::vector<float> electronEta_;
-      std::vector<float> electronPhi_;
-      std::vector<float> electronMatchedDR_;
-      std::vector<float> electronMatchedDEt_;
-      std::vector<int>   electronMatchedIEta_;
-      std::vector<int>   electronMatchedIPhi_;
-      std::vector<float> electronMatchedEt_;
-      std::vector<float> electronMatchedCorrectedEt_;
-      std::vector<float> electronMatchedPtBin_;
-      std::vector<float> electronMatchedSum3x3_;
-      std::vector<float> electronMatchedSum5x5_;
-      std::vector<float> electronMatchedSum7x7_;
-      std::vector<float> electronMatchedCorrectedSum3x3_;
-      std::vector<float> electronMatchedCorrectedSum5x5_;
-      std::vector<float> electronMatchedCorrectedSum7x7_;
-
-      std::vector<float> electronFromZPt_;
-      std::vector<float> electronFromZEta_;
-      std::vector<float> electronFromZPhi_;
-      std::vector<float> electronFromZMatchedDR_;
-      std::vector<float> electronFromZMatchedDEt_;
-      std::vector<int>   electronFromZMatchedIEta_;
-      std::vector<int>   electronFromZMatchedIPhi_;
-      std::vector<float> electronFromZMatchedEt_;
-      std::vector<float> electronFromZMatchedCorrectedEt_;
-      std::vector<float> electronFromZMatchedPtBin_;
-      std::vector<float> electronFromZMatchedSum3x3_;
-      std::vector<float> electronFromZMatchedSum5x5_;
-      std::vector<float> electronFromZMatchedSum7x7_;
-      std::vector<float> electronFromZMatchedCorrectedSum3x3_;
-      std::vector<float> electronFromZMatchedCorrectedSum5x5_;
-      std::vector<float> electronFromZMatchedCorrectedSum7x7_;
-
-      std::vector<float> photonPt_;
-      std::vector<float> photonEta_;
-      std::vector<float> photonPhi_;
-
+      std::map<std::string, std::vector<float> > branches_;
 };
 
 //
@@ -198,6 +182,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   photonsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("photons"))),
   electronIdMapToken_(consumes<edm::ValueMap<bool> >(iConfig.getParameter<edm::InputTag>("electronIdMap"))),
   electronPairsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("electronPairs"))),
+  genParticlesToken_(consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genParticles"))),
   storeEcal_(iConfig.exists("storeEcal") ? iConfig.getParameter<bool>("storeEcal") : true),
   storeHcal_(iConfig.exists("storeHcal") ? iConfig.getParameter<bool>("storeHcal") : true),
   storeStage2Layer1_(iConfig.exists("storeStage2Layer1") ? iConfig.getParameter<bool>("storeStage2Layer1") : true),
@@ -208,7 +193,6 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
 
   // create tree_
   tree_ = fs_->make<TTree>("L1TTree", "L1TTree");
-
 
   // initialize branches
   
@@ -252,44 +236,11 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
 
 
   // electrons
-  tree_->Branch("electron_pt", &electronPt_);
-  tree_->Branch("electron_eta", &electronEta_);
-  tree_->Branch("electron_phi", &electronPhi_);
-  tree_->Branch("electron_matchedDR", &electronMatchedDR_);
-  tree_->Branch("electron_matchedDEt", &electronMatchedDEt_);
-  tree_->Branch("electron_matchedIEta", &electronMatchedIEta_);
-  tree_->Branch("electron_matchedIPhi", &electronMatchedIPhi_);
-  tree_->Branch("electron_matchedEt", &electronMatchedEt_);
-  tree_->Branch("electron_matchedCorrectedEt", &electronMatchedCorrectedEt_);
-  tree_->Branch("electron_matchedPtBin", &electronMatchedPtBin_);
-  tree_->Branch("electron_matchedSum3x3", &electronMatchedSum3x3_);
-  tree_->Branch("electron_matchedSum5x5", &electronMatchedSum5x5_);
-  tree_->Branch("electron_matchedSum7x7", &electronMatchedSum7x7_);
-  tree_->Branch("electron_matchedCorrectedSum3x3", &electronMatchedCorrectedSum3x3_);
-  tree_->Branch("electron_matchedCorrectedSum5x5", &electronMatchedCorrectedSum5x5_);
-  tree_->Branch("electron_matchedCorrectedSum7x7", &electronMatchedCorrectedSum7x7_);
+  buildMatchToEcal("electron");
+  buildMatchToEcal("electronFromZ");
 
-  tree_->Branch("electronFromZ_pt", &electronFromZPt_);
-  tree_->Branch("electronFromZ_eta", &electronFromZEta_);
-  tree_->Branch("electronFromZ_phi", &electronFromZPhi_);
-  tree_->Branch("electronFromZ_matchedDR", &electronFromZMatchedDR_);
-  tree_->Branch("electronFromZ_matchedDEt", &electronFromZMatchedDEt_);
-  tree_->Branch("electronFromZ_matchedIEta", &electronFromZMatchedIEta_);
-  tree_->Branch("electronFromZ_matchedIPhi", &electronFromZMatchedIPhi_);
-  tree_->Branch("electronFromZ_matchedEt", &electronFromZMatchedEt_);
-  tree_->Branch("electronFromZ_matchedCorrectedEt", &electronFromZMatchedCorrectedEt_);
-  tree_->Branch("electronFromZ_matchedPtBin", &electronFromZMatchedPtBin_);
-  tree_->Branch("electronFromZ_matchedSum3x3", &electronFromZMatchedSum3x3_);
-  tree_->Branch("electronFromZ_matchedSum5x5", &electronFromZMatchedSum5x5_);
-  tree_->Branch("electronFromZ_matchedSum7x7", &electronFromZMatchedSum7x7_);
-  tree_->Branch("electronFromZ_matchedCorrectedSum3x3", &electronFromZMatchedCorrectedSum3x3_);
-  tree_->Branch("electronFromZ_matchedCorrectedSum5x5", &electronFromZMatchedCorrectedSum5x5_);
-  tree_->Branch("electronFromZ_matchedCorrectedSum7x7", &electronFromZMatchedCorrectedSum7x7_);
-
-  // photons
-  tree_->Branch("photon_pt", &photonPt_);
-  tree_->Branch("photon_eta", &photonEta_);
-  tree_->Branch("photon_phi", &photonPhi_);
+  // pions
+  buildMatchToHcal("genPion");
 }
 
 
@@ -355,17 +306,289 @@ L1Analyzer::getHFSF(double pt, int ieta) {
   return layer1HFScaleFactors_[sfbin]; 
 }
 
+void
+L1Analyzer::buildMatchToEcal(std::string name) {
+  std::vector<std::string> vars;
+  vars.push_back("pt");
+  vars.push_back("eta");
+  vars.push_back("phi");
+  vars.push_back("pdgId");
+  vars.push_back("matchedDR");
+  vars.push_back("matchedDEt");
+  vars.push_back("matchedIEta");
+  vars.push_back("matchedIPhi");
+  vars.push_back("matchedEt");
+  vars.push_back("matchedCorrectedEt");
+  vars.push_back("matchedPtBin");
+  vars.push_back("matchedEcalSum3x3");
+  vars.push_back("matchedEcalSum5x5");
+  vars.push_back("matchedEcalSum7x7");
+  vars.push_back("matchedEcalCorrectedSum3x3");
+  vars.push_back("matchedEcalCorrectedSum5x5");
+  vars.push_back("matchedEcalCorrectedSum7x7");
+
+  for (auto var: vars) {
+    std::string bname = name+"_"+var;
+    branches_[bname] = std::vector<float>();
+    tree_->Branch(bname.c_str(), &branches_[bname]);
+  }
+}
+
+void
+L1Analyzer::buildMatchToHcal(std::string name) {
+  buildMatchToEcal(name);
+
+  std::vector<std::string> vars;
+  vars.push_back("matchedHcalSum3x3");
+  vars.push_back("matchedHcalSum5x5");
+  vars.push_back("matchedHcalSum7x7");
+  vars.push_back("matchedHcalCorrectedSum3x3");
+  vars.push_back("matchedHcalCorrectedSum5x5");
+  vars.push_back("matchedHcalCorrectedSum7x7");
+  vars.push_back("matchedSum3x3");
+  vars.push_back("matchedSum5x5");
+  vars.push_back("matchedSum7x7");
+  vars.push_back("matchedCorrectedSum3x3");
+  vars.push_back("matchedCorrectedSum5x5");
+  vars.push_back("matchedCorrectedSum7x7");
+
+  for (auto var: vars) {
+    std::string bname = name+"_"+var;
+    branches_[bname] = std::vector<float>();
+    tree_->Branch(bname.c_str(), &branches_[bname]);
+  }
+}
+
+void
+L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
+  float pt = cand.pt();
+  float eta = cand.eta();
+  float phi = cand.phi();
+  int pdgId = cand.pdgId();
+
+  // find closest max ecaltp
+  double closestDR = 1e6;
+  double closestDEt = 1e6;
+  double closestEt = 0;
+  double closestCorrectedEt = 0;
+  int closestIEta = -999;
+  int closestIPhi = -999;
+  int match = -1;
+  for ( const auto& ecalTP : *ecalTPs_ ) {
+    int tp_ieta = ecalTP.id().ieta();
+    int tp_iphi = ecalTP.id().iphi();
+    int tp_compressedEt = ecalTP.compressedEt();
+    double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
+    double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
+    double tp_et = tp_compressedEt*LSB_;
+    double correctedEt = tp_et*getEcalSF(tp_et,tp_ieta);
+    double dr = deltaR(tp_eta,tp_phi,eta,phi);
+    double det = fabs(pt-tp_et);
+    if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
+      closestDR = dr;
+      closestDEt = det;
+      closestIEta = tp_ieta;
+      closestIPhi = tp_iphi;
+      closestEt = tp_et;
+      closestCorrectedEt = correctedEt;
+      match = 1;
+    }
+  }
+
+  int closestPtBin = getHcalPtBin(closestEt);
+
+  // if match found and electron is good
+  if (pt>0 && match>0) {
+    // calculate sums
+    double ecalSum3x3 = 0.;
+    double ecalSum5x5 = 0.;
+    double ecalSum7x7 = 0.;
+    double ecalCorrectedSum3x3 = 0.;
+    double ecalCorrectedSum5x5 = 0.;
+    double ecalCorrectedSum7x7 = 0.;
+    for (int e=-3; e<4; ++e) {
+      int ie = N_IETA_+closestIEta;
+      if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
+      ie+=e;
+      if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
+      for (int p=-3; p<4; ++p) {
+        int ip = closestIPhi-1;               // i .. 72 -> 0 .. 71
+        ip+=p;
+        if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
+        if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
+        if (e>-2 && e<2 && p>-2 && p<2) {
+          ecalSum3x3 += ecalTPs_et_[ie][ip];
+          ecalCorrectedSum3x3 += ecalTPs_correctedEt_[ie][ip];
+        }
+        if (e>-3 && e<3 && p>-3 && p<3) {
+          ecalSum5x5 += ecalTPs_et_[ie][ip];
+          ecalCorrectedSum5x5 += ecalTPs_correctedEt_[ie][ip];
+        }
+        ecalSum7x7 += ecalTPs_et_[ie][ip];
+        ecalCorrectedSum7x7 += ecalTPs_correctedEt_[ie][ip];
+      }
+    }
+
+    branches_[name+"_pt"].push_back(pt);
+    branches_[name+"_eta"].push_back(eta);
+    branches_[name+"_phi"].push_back(phi);
+    branches_[name+"_pdgId"].push_back(pdgId);
+    branches_[name+"_matchedDR"].push_back(closestDR);
+    branches_[name+"_matchedDEt"].push_back(closestDEt);
+    branches_[name+"_matchedIEta"].push_back(closestIEta);
+    branches_[name+"_matchedIPhi"].push_back(closestIPhi);
+    branches_[name+"_matchedEt"].push_back(closestEt);
+    branches_[name+"_matchedCorrectedEt"].push_back(closestCorrectedEt);
+    branches_[name+"_matchedPtBin"].push_back(closestPtBin);
+    branches_[name+"_matchedEcalSum3x3"].push_back(ecalSum3x3);
+    branches_[name+"_matchedEcalSum5x5"].push_back(ecalSum5x5);
+    branches_[name+"_matchedEcalSum7x7"].push_back(ecalSum7x7);
+    branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(ecalCorrectedSum3x3);
+    branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(ecalCorrectedSum5x5);
+    branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(ecalCorrectedSum7x7);
+  }
+}
+
+void
+L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
+  float pt = cand.pt();
+  float eta = cand.eta();
+  float phi = cand.phi();
+  int pdgId = cand.pdgId();
+
+  // find closest max hcaltp
+  double closestDR = 1e6;
+  double closestDEt = 1e6;
+  double closestEt = 0;
+  double closestCorrectedEt = 0;
+  int closestIEta = -999;
+  int closestIPhi = -999;
+  int match = -1;
+  for ( const auto& hcalTP : *hcalTPs_ ) {
+    int tp_ieta = hcalTP.id().ieta();
+    int tp_iphi = hcalTP.id().iphi();
+    double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
+    double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
+    double tp_et = decoder_->hcaletValue(hcalTP.id(), hcalTP.t0());
+    double correctedEt = tp_et*getHcalSF(tp_et,tp_ieta);
+    double dr = deltaR(tp_eta,tp_phi,eta,phi);
+    double det = fabs(pt-tp_et);
+    if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
+      closestDR = dr;
+      closestDEt = det;
+      closestIEta = tp_ieta;
+      closestIPhi = tp_iphi;
+      closestEt = tp_et;
+      closestCorrectedEt = correctedEt;
+      match = 1;
+    }
+  }
+
+  int closestPtBin = getHcalPtBin(closestEt);
+
+  // if match found and electron is good
+  if (pt>0 && match>0) {
+    // calculate sums
+    double sum3x3 = 0.;
+    double sum5x5 = 0.;
+    double sum7x7 = 0.;
+    double correctedSum3x3 = 0.;
+    double correctedSum5x5 = 0.;
+    double correctedSum7x7 = 0.;
+    double ecalSum3x3 = 0.;
+    double ecalSum5x5 = 0.;
+    double ecalSum7x7 = 0.;
+    double ecalCorrectedSum3x3 = 0.;
+    double ecalCorrectedSum5x5 = 0.;
+    double ecalCorrectedSum7x7 = 0.;
+    double hcalSum3x3 = 0.;
+    double hcalSum5x5 = 0.;
+    double hcalSum7x7 = 0.;
+    double hcalCorrectedSum3x3 = 0.;
+    double hcalCorrectedSum5x5 = 0.;
+    double hcalCorrectedSum7x7 = 0.;
+    for (int e=-3; e<4; ++e) {
+      int ie = N_IETA_+closestIEta;
+      if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
+      ie+=e;
+      if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
+      for (int p=-3; p<4; ++p) {
+        int ip = closestIPhi-1;               // i .. 72 -> 0 .. 71
+        ip+=p;
+        if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
+        if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
+        if (e>-2 && e<2 && p>-2 && p<2) {
+          sum3x3 += ecalTPs_et_[ie][ip];
+          correctedSum3x3 += ecalTPs_correctedEt_[ie][ip];
+          ecalSum3x3 += ecalTPs_et_[ie][ip];
+          ecalCorrectedSum3x3 += ecalTPs_correctedEt_[ie][ip];
+          sum3x3 += hcalTPs_et_[ie][ip];
+          correctedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+          hcalSum3x3 += hcalTPs_et_[ie][ip];
+          hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+        }
+        if (e>-3 && e<3 && p>-3 && p<3) {
+          sum5x5 += ecalTPs_et_[ie][ip];
+          correctedSum5x5 += ecalTPs_correctedEt_[ie][ip];
+          ecalSum5x5 += ecalTPs_et_[ie][ip];
+          ecalCorrectedSum5x5 += ecalTPs_correctedEt_[ie][ip];
+          sum5x5 += hcalTPs_et_[ie][ip];
+          correctedSum5x5 += hcalTPs_correctedEt_[ie][ip];
+          hcalSum5x5 += hcalTPs_et_[ie][ip];
+          hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+        }
+        sum7x7 += ecalTPs_et_[ie][ip];
+        correctedSum7x7 += ecalTPs_correctedEt_[ie][ip];
+        ecalSum7x7 += ecalTPs_et_[ie][ip];
+        ecalCorrectedSum7x7 += ecalTPs_correctedEt_[ie][ip];
+        sum7x7 += hcalTPs_et_[ie][ip];
+        correctedSum7x7 += hcalTPs_correctedEt_[ie][ip];
+        hcalSum7x7 += hcalTPs_et_[ie][ip];
+        hcalCorrectedSum7x7 += hcalTPs_correctedEt_[ie][ip];
+      }
+    }
+
+    branches_[name+"_pt"].push_back(pt);
+    branches_[name+"_eta"].push_back(eta);
+    branches_[name+"_phi"].push_back(phi);
+    branches_[name+"_pdgId"].push_back(pdgId);
+    branches_[name+"_matchedDR"].push_back(closestDR);
+    branches_[name+"_matchedDEt"].push_back(closestDEt);
+    branches_[name+"_matchedIEta"].push_back(closestIEta);
+    branches_[name+"_matchedIPhi"].push_back(closestIPhi);
+    branches_[name+"_matchedEt"].push_back(closestEt);
+    branches_[name+"_matchedCorrectedEt"].push_back(closestCorrectedEt);
+    branches_[name+"_matchedPtBin"].push_back(closestPtBin);
+    branches_[name+"_matchedEcalSum3x3"].push_back(ecalSum3x3);
+    branches_[name+"_matchedEcalSum5x5"].push_back(ecalSum5x5);
+    branches_[name+"_matchedEcalSum7x7"].push_back(ecalSum7x7);
+    branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(ecalCorrectedSum3x3);
+    branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(ecalCorrectedSum5x5);
+    branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(ecalCorrectedSum7x7);
+    branches_[name+"_matchedHcalSum3x3"].push_back(hcalSum3x3);
+    branches_[name+"_matchedHcalSum5x5"].push_back(hcalSum5x5);
+    branches_[name+"_matchedHcalSum7x7"].push_back(hcalSum7x7);
+    branches_[name+"_matchedHcalCorrectedSum3x3"].push_back(hcalCorrectedSum3x3);
+    branches_[name+"_matchedHcalCorrectedSum5x5"].push_back(hcalCorrectedSum5x5);
+    branches_[name+"_matchedHcalCorrectedSum7x7"].push_back(hcalCorrectedSum7x7);
+    branches_[name+"_matchedSum3x3"].push_back(sum3x3);
+    branches_[name+"_matchedSum5x5"].push_back(sum5x5);
+    branches_[name+"_matchedSum7x7"].push_back(sum7x7);
+    branches_[name+"_matchedCorrectedSum3x3"].push_back(correctedSum3x3);
+    branches_[name+"_matchedCorrectedSum5x5"].push_back(correctedSum5x5);
+    branches_[name+"_matchedCorrectedSum7x7"].push_back(correctedSum7x7);
+  }
+}
+
 // ------------ method called for each event  ------------
 void
 L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
 
   // grab collections
-  edm::Handle<EcalTrigPrimDigiCollection> ecalTPs;
-  iEvent.getByToken(ecalDigisToken_, ecalTPs);
+  iEvent.getByToken(ecalDigisToken_, ecalTPs_);
 
-  edm::Handle<HcalTrigPrimDigiCollection> hcalTPs;
-  iEvent.getByToken(hcalDigisToken_, hcalTPs);
+  iEvent.getByToken(hcalDigisToken_, hcalTPs_);
 
   edm::Handle<l1t::CaloTowerBxCollection> caloTowerBXs;
   iEvent.getByToken(stage2Layer1DigisToken_, caloTowerBXs);
@@ -382,8 +605,10 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<reco::CandidateView> electronPairs;
   iEvent.getByToken(electronPairsToken_, electronPairs);
 
-  edm::ESHandle<CaloTPGTranscoder> decoder;
-  iSetup.get<CaloTPGRecord>().get(decoder);
+  edm::Handle<reco::GenParticleCollection> genParticles;
+  iEvent.getByToken(genParticlesToken_, genParticles);
+
+  iSetup.get<CaloTPGRecord>().get(decoder_);
 
   edm::ESHandle<l1t::CaloParams> paramsHandle;
   iSetup.get<L1TCaloStage2ParamsRcd>().get(paramsHandle);
@@ -429,57 +654,31 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   expectedTotalET_ = 0;
 
-  electronPt_.clear();
-  electronEta_.clear();
-  electronPhi_.clear();
-  electronMatchedDR_.clear();
-  electronMatchedDEt_.clear();
-  electronMatchedIEta_.clear();
-  electronMatchedIPhi_.clear();
-  electronMatchedEt_.clear();
-  electronMatchedCorrectedEt_.clear();
-  electronMatchedPtBin_.clear();
-  electronMatchedSum3x3_.clear();
-  electronMatchedSum5x5_.clear();
-  electronMatchedSum7x7_.clear();
-  electronMatchedCorrectedSum3x3_.clear();
-  electronMatchedCorrectedSum5x5_.clear();
-  electronMatchedCorrectedSum7x7_.clear();
-
-  electronFromZPt_.clear();
-  electronFromZEta_.clear();
-  electronFromZPhi_.clear();
-  electronFromZMatchedDR_.clear();
-  electronFromZMatchedDEt_.clear();
-  electronFromZMatchedIEta_.clear();
-  electronFromZMatchedIPhi_.clear();
-  electronFromZMatchedEt_.clear();
-  electronFromZMatchedCorrectedEt_.clear();
-  electronFromZMatchedPtBin_.clear();
-  electronFromZMatchedSum3x3_.clear();
-  electronFromZMatchedSum5x5_.clear();
-  electronFromZMatchedSum7x7_.clear();
-  electronFromZMatchedCorrectedSum3x3_.clear();
-  electronFromZMatchedCorrectedSum5x5_.clear();
-  electronFromZMatchedCorrectedSum7x7_.clear();
-
-  photonPt_.clear();
-  photonEta_.clear();
-  photonPhi_.clear();
+  for (auto& entry: branches_) {
+    entry.second.clear();
+  }
 
   // build objects to store TP energy
-  std::vector<std::vector<int> >    ecalTPs_compressedEt_(N_IETA_*2, std::vector<int>(N_IPHI_));
-  std::vector<std::vector<double> > ecalTPs_et_(N_IETA_*2, std::vector<double>(N_IPHI_));
-  std::vector<std::vector<double> > ecalTPs_correctedEt_(N_IETA_*2, std::vector<double>(N_IPHI_));
+  ecalTPs_compressedEt_.clear();
+  ecalTPs_et_.clear();
+  ecalTPs_correctedEt_.clear();
+  hcalTPs_compressedEt_.clear();
+  hcalTPs_et_.clear();
+  hcalTPs_correctedEt_.clear();
 
-  std::vector<std::vector<int> >    hcalTPs_compressedEt_(N_IETA_*2, std::vector<int>(N_IPHI_));
-  std::vector<std::vector<double> > hcalTPs_et_(N_IETA_*2, std::vector<double>(N_IPHI_));
-  std::vector<std::vector<double> > hcalTPs_correctedEt_(N_IETA_*2, std::vector<double>(N_IPHI_));
+  for (int ie=0; ie<N_IETA_*2; ++ie) {
+    ecalTPs_compressedEt_.push_back(std::vector<int>(N_IPHI_));
+    ecalTPs_et_.push_back(std::vector<double>(N_IPHI_));
+    ecalTPs_correctedEt_.push_back(std::vector<double>(N_IPHI_));
+    hcalTPs_compressedEt_.push_back(std::vector<int>(N_IPHI_));
+    hcalTPs_et_.push_back(std::vector<double>(N_IPHI_));
+    hcalTPs_correctedEt_.push_back(std::vector<double>(N_IPHI_));
+  }
 
   // set branch values
 
   // ecalTPs
-  for ( const auto& ecalTp : *ecalTPs ) {
+  for ( const auto& ecalTp : *ecalTPs_ ) {
     int caloEta = ecalTp.id().ieta();
     int caloPhi = ecalTp.id().iphi();
     int compressedEt = ecalTp.compressedEt();
@@ -503,7 +702,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
 
   // hcalTPs
-  for ( const auto& hcalTp : *hcalTPs ) {
+  for ( const auto& hcalTp : *hcalTPs_ ) {
     int caloEta = hcalTp.id().ieta();
     uint32_t absCaloEta = abs(caloEta);
     int hcalVersion = hcalTp.id().version();
@@ -518,7 +717,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     else if(absCaloEta <= 41) {
       int caloPhi = hcalTp.id().iphi();
       int compressedEt = hcalTp.SOI_compressedEt();
-      double et = decoder->hcaletValue(hcalTp.id(), hcalTp.t0());
+      double et = decoder_->hcaletValue(hcalTp.id(), hcalTp.t0());
       bool fg  = hcalTp.t0().fineGrain(0);
       bool fg2 = hcalTp.t0().fineGrain(1);
       bool fg3 = hcalTp.t0().fineGrain(2);
@@ -575,191 +774,22 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // electrons
   for ( size_t i = 0; i < electrons->size(); ++i ) {
     const auto electron = electrons->ptrAt(i);
-  //for (reco::CandidateView::const_iterator it = electronPairs->begin(), ed = electronPairs->end(); it != ed; ++it) {
-  //  const auto electron = it->daughter(1);
     if (!(*electronIdMap)[electron]) continue;
-
-    float pt = electron->pt();
-    float eta = electron->eta();
-    float phi = electron->phi();
-
-    // find closest max ecaltp
-    double closestDR = 1e6;
-    double closestDEt = 1e6;
-    double closestEt = 0;
-    double closestCorrectedEt = 0;
-    int closestIEta = -999;
-    int closestIPhi = -999;
-    int match = -1;
-    for ( const auto& ecalTP : *ecalTPs ) {
-      int tp_ieta = ecalTP.id().ieta();
-      int tp_iphi = ecalTP.id().iphi();
-      int tp_compressedEt = ecalTP.compressedEt();
-      double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
-      double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
-      double tp_et = tp_compressedEt*LSB_;
-      double correctedEt = tp_et*getEcalSF(tp_et,tp_ieta);
-      double dr = deltaR(tp_eta,tp_phi,eta,phi);
-      double det = fabs(pt-tp_et);
-      if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
-        closestDR = dr;
-        closestDEt = det;
-        closestIEta = tp_ieta;
-        closestIPhi = tp_iphi;
-        closestEt = tp_et;
-        closestCorrectedEt = correctedEt;
-        match = 1;
-      }
-    }
-
-    int closestPtBin = getEcalPtBin(closestEt);
-
-    // if match found and electron is good
-    if (pt>0 && match>0) {
-      // calculate sums
-      double sum3x3 = 0.;
-      double sum5x5 = 0.;
-      double sum7x7 = 0.;
-      double correctedSum3x3 = 0.;
-      double correctedSum5x5 = 0.;
-      double correctedSum7x7 = 0.;
-      for (int e=-3; e<4; ++e) {
-        int ie = N_IETA_+closestIEta;
-        if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
-        ie+=e;
-        if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
-        for (int p=-3; p<4; ++p) {
-          int ip = closestIPhi-1;               // i .. 72 -> 0 .. 71
-          ip+=p;
-          if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
-          if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
-          if (e>-2 && e<2 && p>-2 && p<2) sum3x3 += ecalTPs_et_[ie][ip];
-          if (e>-3 && e<3 && p>-3 && p<3) sum5x5 += ecalTPs_et_[ie][ip];
-          sum7x7 += ecalTPs_et_[ie][ip];
-          if (e>-2 && e<2 && p>-2 && p<2) correctedSum3x3 += ecalTPs_correctedEt_[ie][ip];
-          if (e>-3 && e<3 && p>-3 && p<3) correctedSum5x5 += ecalTPs_correctedEt_[ie][ip];
-          correctedSum7x7 += ecalTPs_correctedEt_[ie][ip];
-        }
-      }
-
-      // fill branches
-      electronPt_.push_back(pt);
-      electronEta_.push_back(eta);
-      electronPhi_.push_back(phi);
-      electronMatchedDR_.push_back(closestDR);
-      electronMatchedDEt_.push_back(closestDEt);
-      electronMatchedIEta_.push_back(closestIEta);
-      electronMatchedIPhi_.push_back(closestIPhi);
-      electronMatchedEt_.push_back(closestEt);
-      electronMatchedCorrectedEt_.push_back(closestCorrectedEt);
-      electronMatchedPtBin_.push_back(closestPtBin);
-      electronMatchedSum3x3_.push_back(sum3x3);
-      electronMatchedSum5x5_.push_back(sum5x5);
-      electronMatchedSum7x7_.push_back(sum7x7);
-      electronMatchedCorrectedSum3x3_.push_back(correctedSum3x3);
-      electronMatchedCorrectedSum5x5_.push_back(correctedSum5x5);
-      electronMatchedCorrectedSum7x7_.push_back(correctedSum7x7);
-    }
+    matchObjectToEcal("electron",*electron);
   }
 
   // electrons from Z
   for (reco::CandidateView::const_iterator it = electronPairs->begin(), ed = electronPairs->end(); it != ed; ++it) {
     if (it->numberOfDaughters()<2) continue;
     const auto electron = it->daughter(1);
-
-    float pt = electron->pt();
-    float eta = electron->eta();
-    float phi = electron->phi();
-
-    // find closest max ecaltp
-    double closestDR = 1e6;
-    double closestDEt = 1e6;
-    double closestEt = 0;
-    double closestCorrectedEt = 0;
-    int closestIEta = -999;
-    int closestIPhi = -999;
-    int match = -1;
-    for ( const auto& ecalTP : *ecalTPs ) {
-      int tp_ieta = ecalTP.id().ieta();
-      int tp_iphi = ecalTP.id().iphi();
-      int tp_compressedEt = ecalTP.compressedEt();
-      double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
-      double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
-      double tp_et = tp_compressedEt*LSB_;
-      double correctedEt = tp_et*getEcalSF(tp_et,tp_ieta);
-      double dr = deltaR(tp_eta,tp_phi,eta,phi);
-      double det = fabs(pt-tp_et);
-      if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
-        closestDR = dr;
-        closestDEt = det;
-        closestIEta = tp_ieta;
-        closestIPhi = tp_iphi;
-        closestEt = tp_et;
-        closestCorrectedEt = correctedEt;
-        match = 1;
-      }
-    }
-
-    int closestPtBin = getEcalPtBin(closestEt);
-
-    // if match found and electron is good
-    if (pt>0 && match>0) {
-      // calculate sums
-      double sum3x3 = 0.;
-      double sum5x5 = 0.;
-      double sum7x7 = 0.;
-      double correctedSum3x3 = 0.;
-      double correctedSum5x5 = 0.;
-      double correctedSum7x7 = 0.;
-      for (int e=-3; e<4; ++e) {
-        int ie = N_IETA_+closestIEta;
-        if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
-        ie+=e;
-        if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
-        for (int p=-3; p<4; ++p) {
-          int ip = closestIPhi-1;               // i .. 72 -> 0 .. 71
-          ip+=p;
-          if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
-          if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
-          if (e>-2 && e<2 && p>-2 && p<2) sum3x3 += ecalTPs_et_[ie][ip];
-          if (e>-3 && e<3 && p>-3 && p<3) sum5x5 += ecalTPs_et_[ie][ip];
-          sum7x7 += ecalTPs_et_[ie][ip];
-          if (e>-2 && e<2 && p>-2 && p<2) correctedSum3x3 += ecalTPs_correctedEt_[ie][ip];
-          if (e>-3 && e<3 && p>-3 && p<3) correctedSum5x5 += ecalTPs_correctedEt_[ie][ip];
-          correctedSum7x7 += ecalTPs_correctedEt_[ie][ip];
-        }
-      }
-
-      // fill branches
-      electronFromZPt_.push_back(pt);
-      electronFromZEta_.push_back(eta);
-      electronFromZPhi_.push_back(phi);
-      electronFromZMatchedDR_.push_back(closestDR);
-      electronFromZMatchedDEt_.push_back(closestDEt);
-      electronFromZMatchedIEta_.push_back(closestIEta);
-      electronFromZMatchedIPhi_.push_back(closestIPhi);
-      electronFromZMatchedEt_.push_back(closestEt);
-      electronFromZMatchedCorrectedEt_.push_back(closestCorrectedEt);
-      electronFromZMatchedPtBin_.push_back(closestPtBin);
-      electronFromZMatchedSum3x3_.push_back(sum3x3);
-      electronFromZMatchedSum5x5_.push_back(sum5x5);
-      electronFromZMatchedSum7x7_.push_back(sum7x7);
-      electronFromZMatchedCorrectedSum3x3_.push_back(correctedSum3x3);
-      electronFromZMatchedCorrectedSum5x5_.push_back(correctedSum5x5);
-      electronFromZMatchedCorrectedSum7x7_.push_back(correctedSum7x7);
-    }
+    matchObjectToEcal("electronFromZ",*electron);
   }
 
-  // photons
-  for ( const auto& photon : *photons ) {
-    float pt = photon.pt();
-    float eta = photon.eta();
-    float phi = photon.phi();
-
-    if (pt>0) {
-      photonPt_.push_back(pt);
-      photonEta_.push_back(eta);
-      photonPhi_.push_back(phi);
+  // gen partices
+  if (genParticles.isValid()) {
+    // pions
+    for ( const auto& pion : *genParticles ){
+      matchObjectToHcal("genPion",pion);
     }
   }
 
