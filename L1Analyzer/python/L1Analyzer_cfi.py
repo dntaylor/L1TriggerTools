@@ -13,4 +13,5 @@ l1Analyzer = cms.EDAnalyzer("L1Analyzer",
     storeHcal = cms.bool(True),
     storeStage2Layer1 = cms.bool(True),
     LSB = cms.double(0.5),
+    isMC = cms.bool(False),
 )

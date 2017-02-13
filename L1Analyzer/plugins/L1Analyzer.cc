@@ -97,6 +97,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       bool storeHcal_;
       bool storeStage2Layer1_;
       double LSB_;
+      bool isMC_;
 
       edm::Handle<EcalTrigPrimDigiCollection> ecalTPs_;
       edm::Handle<HcalTrigPrimDigiCollection> hcalTPs_;
@@ -186,7 +187,8 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   storeEcal_(iConfig.exists("storeEcal") ? iConfig.getParameter<bool>("storeEcal") : true),
   storeHcal_(iConfig.exists("storeHcal") ? iConfig.getParameter<bool>("storeHcal") : true),
   storeStage2Layer1_(iConfig.exists("storeStage2Layer1") ? iConfig.getParameter<bool>("storeStage2Layer1") : true),
-  LSB_(iConfig.exists("LSB") ? iConfig.getParameter<double>("LSB") : 0.5)
+  LSB_(iConfig.exists("LSB") ? iConfig.getParameter<double>("LSB") : 0.5),
+  isMC_(iConfig.getParameter<bool>("isMC"))
 {
   // intialize tfileservice
   usesResource("TFileService");
@@ -240,7 +242,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   buildMatchToEcal("electronFromZ");
 
   // pions
-  buildMatchToHcal("genPion");
+  if (isMC_) buildMatchToHcal("genPion");
 }
 
 
@@ -786,7 +788,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
 
   // gen partices
-  if (genParticles.isValid()) {
+  if (genParticles.isValid() && isMC_) {
     // pions
     for ( const auto& pion : *genParticles ){
       matchObjectToHcal("genPion",pion);

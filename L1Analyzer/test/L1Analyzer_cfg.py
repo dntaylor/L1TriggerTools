@@ -167,6 +167,7 @@ process.l1Analyzer.electronPairs = cms.InputTag("electronPairs")
 process.l1Analyzer.storeEcal = cms.bool(False)
 process.l1Analyzer.storeHcal = cms.bool(False)
 process.l1Analyzer.storeStage2Layer1 = cms.bool(False)
+process.l1Analyzer.isMC = cms.bool(bool(options.isMC))
 
 ##################
 ### final path ###
