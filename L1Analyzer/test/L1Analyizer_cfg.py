@@ -90,8 +90,8 @@ process.simCaloStage2Layer1Digis.hcalToken = cms.InputTag("simHcalTriggerPrimiti
 
 #process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_0_inconsistent_cfi.py')
 
-process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff')      # CaloTPGTranscoder
-process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2016_v3_3_cfi')  # L1 CaloParams
+process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff')         # CaloTPGTranscoder
+process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_1_cfi')     # L1 CaloParams
 process.HcalTPGCoderULUT.LUTGenerationMode = cms.bool(False)
 
 from L1Trigger.Configuration.customiseReEmul import L1TEventSetupForHF1x1TPs,L1TReEmulFromRAW,L1TReEmulFromRAWsimTP
