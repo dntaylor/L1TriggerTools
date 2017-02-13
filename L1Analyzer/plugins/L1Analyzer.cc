@@ -147,6 +147,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int>   electronMatchedIEta_;
       std::vector<int>   electronMatchedIPhi_;
       std::vector<float> electronMatchedEt_;
+      std::vector<float> electronMatchedCorrectedEt_;
       std::vector<float> electronMatchedPtBin_;
       std::vector<float> electronMatchedSum3x3_;
       std::vector<float> electronMatchedSum5x5_;
@@ -163,6 +164,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int>   electronFromZMatchedIEta_;
       std::vector<int>   electronFromZMatchedIPhi_;
       std::vector<float> electronFromZMatchedEt_;
+      std::vector<float> electronFromZMatchedCorrectedEt_;
       std::vector<float> electronFromZMatchedPtBin_;
       std::vector<float> electronFromZMatchedSum3x3_;
       std::vector<float> electronFromZMatchedSum5x5_;
@@ -258,6 +260,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   tree_->Branch("electron_matchedIEta", &electronMatchedIEta_);
   tree_->Branch("electron_matchedIPhi", &electronMatchedIPhi_);
   tree_->Branch("electron_matchedEt", &electronMatchedEt_);
+  tree_->Branch("electron_matchedCorrectedEt", &electronMatchedCorrectedEt_);
   tree_->Branch("electron_matchedPtBin", &electronMatchedPtBin_);
   tree_->Branch("electron_matchedSum3x3", &electronMatchedSum3x3_);
   tree_->Branch("electron_matchedSum5x5", &electronMatchedSum5x5_);
@@ -274,6 +277,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   tree_->Branch("electronFromZ_matchedIEta", &electronFromZMatchedIEta_);
   tree_->Branch("electronFromZ_matchedIPhi", &electronFromZMatchedIPhi_);
   tree_->Branch("electronFromZ_matchedEt", &electronFromZMatchedEt_);
+  tree_->Branch("electronFromZ_matchedCorrectedEt", &electronFromZMatchedCorrectedEt_);
   tree_->Branch("electronFromZ_matchedPtBin", &electronFromZMatchedPtBin_);
   tree_->Branch("electronFromZ_matchedSum3x3", &electronFromZMatchedSum3x3_);
   tree_->Branch("electronFromZ_matchedSum5x5", &electronFromZMatchedSum5x5_);
@@ -433,6 +437,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   electronMatchedIEta_.clear();
   electronMatchedIPhi_.clear();
   electronMatchedEt_.clear();
+  electronMatchedCorrectedEt_.clear();
   electronMatchedPtBin_.clear();
   electronMatchedSum3x3_.clear();
   electronMatchedSum5x5_.clear();
@@ -449,6 +454,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   electronFromZMatchedIEta_.clear();
   electronFromZMatchedIPhi_.clear();
   electronFromZMatchedEt_.clear();
+  electronFromZMatchedCorrectedEt_.clear();
   electronFromZMatchedPtBin_.clear();
   electronFromZMatchedSum3x3_.clear();
   electronFromZMatchedSum5x5_.clear();
@@ -581,6 +587,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     double closestDR = 1e6;
     double closestDEt = 1e6;
     double closestEt = 0;
+    double closestCorrectedEt = 0;
     int closestIEta = -999;
     int closestIPhi = -999;
     int match = -1;
@@ -591,6 +598,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
       double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
       double tp_et = tp_compressedEt*LSB_;
+      double correctedEt = tp_et*getEcalSF(tp_et,tp_ieta);
       double dr = deltaR(tp_eta,tp_phi,eta,phi);
       double det = fabs(pt-tp_et);
       if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
@@ -599,6 +607,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         closestIEta = tp_ieta;
         closestIPhi = tp_iphi;
         closestEt = tp_et;
+        closestCorrectedEt = correctedEt;
         match = 1;
       }
     }
@@ -642,6 +651,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       electronMatchedIEta_.push_back(closestIEta);
       electronMatchedIPhi_.push_back(closestIPhi);
       electronMatchedEt_.push_back(closestEt);
+      electronMatchedCorrectedEt_.push_back(closestCorrectedEt);
       electronMatchedPtBin_.push_back(closestPtBin);
       electronMatchedSum3x3_.push_back(sum3x3);
       electronMatchedSum5x5_.push_back(sum5x5);
@@ -665,6 +675,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     double closestDR = 1e6;
     double closestDEt = 1e6;
     double closestEt = 0;
+    double closestCorrectedEt = 0;
     int closestIEta = -999;
     int closestIPhi = -999;
     int match = -1;
@@ -675,6 +686,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
       double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
       double tp_et = tp_compressedEt*LSB_;
+      double correctedEt = tp_et*getEcalSF(tp_et,tp_ieta);
       double dr = deltaR(tp_eta,tp_phi,eta,phi);
       double det = fabs(pt-tp_et);
       if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
@@ -683,6 +695,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         closestIEta = tp_ieta;
         closestIPhi = tp_iphi;
         closestEt = tp_et;
+        closestCorrectedEt = correctedEt;
         match = 1;
       }
     }
@@ -726,6 +739,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       electronFromZMatchedIEta_.push_back(closestIEta);
       electronFromZMatchedIPhi_.push_back(closestIPhi);
       electronFromZMatchedEt_.push_back(closestEt);
+      electronFromZMatchedCorrectedEt_.push_back(closestCorrectedEt);
       electronFromZMatchedPtBin_.push_back(closestPtBin);
       electronFromZMatchedSum3x3_.push_back(sum3x3);
       electronFromZMatchedSum5x5_.push_back(sum5x5);
