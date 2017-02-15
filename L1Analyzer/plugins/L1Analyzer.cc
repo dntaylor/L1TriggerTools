@@ -81,6 +81,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
       void matchObjectToEcal(std::string name, const reco::Candidate& cand);
       void matchObjectToHcal(std::string name, const reco::Candidate& cand);
+      void calculateSums(std::string name, int closestIEta, int closestIPhi);
 
       // ----------member data ---------------------------
 
@@ -328,19 +329,6 @@ L1Analyzer::buildMatchToEcal(std::string name) {
   vars.push_back("matchedEcalCorrectedSum3x3");
   vars.push_back("matchedEcalCorrectedSum5x5");
   vars.push_back("matchedEcalCorrectedSum7x7");
-
-  for (auto var: vars) {
-    std::string bname = name+"_"+var;
-    branches_[bname] = std::vector<float>();
-    tree_->Branch(bname.c_str(), &branches_[bname]);
-  }
-}
-
-void
-L1Analyzer::buildMatchToHcal(std::string name) {
-  buildMatchToEcal(name);
-
-  std::vector<std::string> vars;
   vars.push_back("matchedHcalSum3x3");
   vars.push_back("matchedHcalSum5x5");
   vars.push_back("matchedHcalSum7x7");
@@ -359,6 +347,11 @@ L1Analyzer::buildMatchToHcal(std::string name) {
     branches_[bname] = std::vector<float>();
     tree_->Branch(bname.c_str(), &branches_[bname]);
   }
+}
+
+void
+L1Analyzer::buildMatchToHcal(std::string name) {
+  buildMatchToEcal(name);
 }
 
 void
@@ -381,7 +374,7 @@ L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
     int tp_iphi = ecalTP.id().iphi();
     int tp_compressedEt = ecalTP.compressedEt();
     double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
-    double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
+    double tp_phi = uctGeometry_.getUCTTowerPhi(tp_iphi);
     double tp_et = tp_compressedEt*LSB_;
     double correctedEt = tp_et*getEcalSF(tp_et,tp_ieta);
     double dr = deltaR(tp_eta,tp_phi,eta,phi);
@@ -401,35 +394,7 @@ L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
 
   // if match found and electron is good
   if (pt>0 && match>0) {
-    // calculate sums
-    double ecalSum3x3 = 0.;
-    double ecalSum5x5 = 0.;
-    double ecalSum7x7 = 0.;
-    double ecalCorrectedSum3x3 = 0.;
-    double ecalCorrectedSum5x5 = 0.;
-    double ecalCorrectedSum7x7 = 0.;
-    for (int e=-3; e<4; ++e) {
-      int ie = N_IETA_+closestIEta;
-      if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
-      ie+=e;
-      if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
-      for (int p=-3; p<4; ++p) {
-        int ip = closestIPhi-1;               // i .. 72 -> 0 .. 71
-        ip+=p;
-        if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
-        if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
-        if (e>-2 && e<2 && p>-2 && p<2) {
-          ecalSum3x3 += ecalTPs_et_[ie][ip];
-          ecalCorrectedSum3x3 += ecalTPs_correctedEt_[ie][ip];
-        }
-        if (e>-3 && e<3 && p>-3 && p<3) {
-          ecalSum5x5 += ecalTPs_et_[ie][ip];
-          ecalCorrectedSum5x5 += ecalTPs_correctedEt_[ie][ip];
-        }
-        ecalSum7x7 += ecalTPs_et_[ie][ip];
-        ecalCorrectedSum7x7 += ecalTPs_correctedEt_[ie][ip];
-      }
-    }
+    calculateSums(name,closestIEta,closestIPhi);
 
     branches_[name+"_pt"].push_back(pt);
     branches_[name+"_eta"].push_back(eta);
@@ -442,12 +407,6 @@ L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
     branches_[name+"_matchedEt"].push_back(closestEt);
     branches_[name+"_matchedCorrectedEt"].push_back(closestCorrectedEt);
     branches_[name+"_matchedPtBin"].push_back(closestPtBin);
-    branches_[name+"_matchedEcalSum3x3"].push_back(ecalSum3x3);
-    branches_[name+"_matchedEcalSum5x5"].push_back(ecalSum5x5);
-    branches_[name+"_matchedEcalSum7x7"].push_back(ecalSum7x7);
-    branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(ecalCorrectedSum3x3);
-    branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(ecalCorrectedSum5x5);
-    branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(ecalCorrectedSum7x7);
   }
 }
 
@@ -470,7 +429,7 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
     int tp_ieta = hcalTP.id().ieta();
     int tp_iphi = hcalTP.id().iphi();
     double tp_eta = uctGeometry_.getUCTTowerEta(tp_ieta);
-    double tp_phi = uctGeometry_.getUCTTowerEta(tp_iphi);
+    double tp_phi = uctGeometry_.getUCTTowerPhi(tp_iphi);
     double tp_et = decoder_->hcaletValue(hcalTP.id(), hcalTP.t0());
     double correctedEt = tp_et*getHcalSF(tp_et,tp_ieta);
     double dr = deltaR(tp_eta,tp_phi,eta,phi);
@@ -490,65 +449,7 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
 
   // if match found and electron is good
   if (pt>0 && match>0) {
-    // calculate sums
-    double sum3x3 = 0.;
-    double sum5x5 = 0.;
-    double sum7x7 = 0.;
-    double correctedSum3x3 = 0.;
-    double correctedSum5x5 = 0.;
-    double correctedSum7x7 = 0.;
-    double ecalSum3x3 = 0.;
-    double ecalSum5x5 = 0.;
-    double ecalSum7x7 = 0.;
-    double ecalCorrectedSum3x3 = 0.;
-    double ecalCorrectedSum5x5 = 0.;
-    double ecalCorrectedSum7x7 = 0.;
-    double hcalSum3x3 = 0.;
-    double hcalSum5x5 = 0.;
-    double hcalSum7x7 = 0.;
-    double hcalCorrectedSum3x3 = 0.;
-    double hcalCorrectedSum5x5 = 0.;
-    double hcalCorrectedSum7x7 = 0.;
-    for (int e=-3; e<4; ++e) {
-      int ie = N_IETA_+closestIEta;
-      if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
-      ie+=e;
-      if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
-      for (int p=-3; p<4; ++p) {
-        int ip = closestIPhi-1;               // i .. 72 -> 0 .. 71
-        ip+=p;
-        if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
-        if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
-        if (e>-2 && e<2 && p>-2 && p<2) {
-          sum3x3 += ecalTPs_et_[ie][ip];
-          correctedSum3x3 += ecalTPs_correctedEt_[ie][ip];
-          ecalSum3x3 += ecalTPs_et_[ie][ip];
-          ecalCorrectedSum3x3 += ecalTPs_correctedEt_[ie][ip];
-          sum3x3 += hcalTPs_et_[ie][ip];
-          correctedSum3x3 += hcalTPs_correctedEt_[ie][ip];
-          hcalSum3x3 += hcalTPs_et_[ie][ip];
-          hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
-        }
-        if (e>-3 && e<3 && p>-3 && p<3) {
-          sum5x5 += ecalTPs_et_[ie][ip];
-          correctedSum5x5 += ecalTPs_correctedEt_[ie][ip];
-          ecalSum5x5 += ecalTPs_et_[ie][ip];
-          ecalCorrectedSum5x5 += ecalTPs_correctedEt_[ie][ip];
-          sum5x5 += hcalTPs_et_[ie][ip];
-          correctedSum5x5 += hcalTPs_correctedEt_[ie][ip];
-          hcalSum5x5 += hcalTPs_et_[ie][ip];
-          hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
-        }
-        sum7x7 += ecalTPs_et_[ie][ip];
-        correctedSum7x7 += ecalTPs_correctedEt_[ie][ip];
-        ecalSum7x7 += ecalTPs_et_[ie][ip];
-        ecalCorrectedSum7x7 += ecalTPs_correctedEt_[ie][ip];
-        sum7x7 += hcalTPs_et_[ie][ip];
-        correctedSum7x7 += hcalTPs_correctedEt_[ie][ip];
-        hcalSum7x7 += hcalTPs_et_[ie][ip];
-        hcalCorrectedSum7x7 += hcalTPs_correctedEt_[ie][ip];
-      }
-    }
+    calculateSums(name,closestIEta,closestIPhi);
 
     branches_[name+"_pt"].push_back(pt);
     branches_[name+"_eta"].push_back(eta);
@@ -561,25 +462,89 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
     branches_[name+"_matchedEt"].push_back(closestEt);
     branches_[name+"_matchedCorrectedEt"].push_back(closestCorrectedEt);
     branches_[name+"_matchedPtBin"].push_back(closestPtBin);
-    branches_[name+"_matchedEcalSum3x3"].push_back(ecalSum3x3);
-    branches_[name+"_matchedEcalSum5x5"].push_back(ecalSum5x5);
-    branches_[name+"_matchedEcalSum7x7"].push_back(ecalSum7x7);
-    branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(ecalCorrectedSum3x3);
-    branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(ecalCorrectedSum5x5);
-    branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(ecalCorrectedSum7x7);
-    branches_[name+"_matchedHcalSum3x3"].push_back(hcalSum3x3);
-    branches_[name+"_matchedHcalSum5x5"].push_back(hcalSum5x5);
-    branches_[name+"_matchedHcalSum7x7"].push_back(hcalSum7x7);
-    branches_[name+"_matchedHcalCorrectedSum3x3"].push_back(hcalCorrectedSum3x3);
-    branches_[name+"_matchedHcalCorrectedSum5x5"].push_back(hcalCorrectedSum5x5);
-    branches_[name+"_matchedHcalCorrectedSum7x7"].push_back(hcalCorrectedSum7x7);
-    branches_[name+"_matchedSum3x3"].push_back(sum3x3);
-    branches_[name+"_matchedSum5x5"].push_back(sum5x5);
-    branches_[name+"_matchedSum7x7"].push_back(sum7x7);
-    branches_[name+"_matchedCorrectedSum3x3"].push_back(correctedSum3x3);
-    branches_[name+"_matchedCorrectedSum5x5"].push_back(correctedSum5x5);
-    branches_[name+"_matchedCorrectedSum7x7"].push_back(correctedSum7x7);
   }
+}
+
+void
+L1Analyzer::calculateSums(std::string name, int closestIEta, int closestIPhi) {
+  // calculate sums
+  double sum3x3 = 0.;
+  double sum5x5 = 0.;
+  double sum7x7 = 0.;
+  double correctedSum3x3 = 0.;
+  double correctedSum5x5 = 0.;
+  double correctedSum7x7 = 0.;
+  double ecalSum3x3 = 0.;
+  double ecalSum5x5 = 0.;
+  double ecalSum7x7 = 0.;
+  double ecalCorrectedSum3x3 = 0.;
+  double ecalCorrectedSum5x5 = 0.;
+  double ecalCorrectedSum7x7 = 0.;
+  double hcalSum3x3 = 0.;
+  double hcalSum5x5 = 0.;
+  double hcalSum7x7 = 0.;
+  double hcalCorrectedSum3x3 = 0.;
+  double hcalCorrectedSum5x5 = 0.;
+  double hcalCorrectedSum7x7 = 0.;
+  for (int e=-3; e<4; ++e) {
+    int ie = N_IETA_+closestIEta;
+    if (ie>=N_IETA_) ie-=1;                 // -41 .. -1 1 .. 41 -> 0 .. 81
+    ie+=e;
+    if (ie<0 || ie>=2*N_IETA_) continue;    // max tower eta 41
+    for (int p=-3; p<4; ++p) {
+      int ip = closestIPhi-1;               // 1 .. 72 -> 0 .. 71
+      ip+=p;
+      if (ip<0) ip+=N_IPHI_;                // wrap -1 -> 71, etc
+      if (ip>=N_IPHI_) ip-=N_IPHI_;         // wrap 72 -> 0, etc
+      if (e>-2 && e<2 && p>-2 && p<2) {
+        sum3x3 += ecalTPs_et_[ie][ip];
+        correctedSum3x3 += ecalTPs_correctedEt_[ie][ip];
+        ecalSum3x3 += ecalTPs_et_[ie][ip];
+        ecalCorrectedSum3x3 += ecalTPs_correctedEt_[ie][ip];
+        sum3x3 += hcalTPs_et_[ie][ip];
+        correctedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+        hcalSum3x3 += hcalTPs_et_[ie][ip];
+        hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+      }
+      if (e>-3 && e<3 && p>-3 && p<3) {
+        sum5x5 += ecalTPs_et_[ie][ip];
+        correctedSum5x5 += ecalTPs_correctedEt_[ie][ip];
+        ecalSum5x5 += ecalTPs_et_[ie][ip];
+        ecalCorrectedSum5x5 += ecalTPs_correctedEt_[ie][ip];
+        sum5x5 += hcalTPs_et_[ie][ip];
+        correctedSum5x5 += hcalTPs_correctedEt_[ie][ip];
+        hcalSum5x5 += hcalTPs_et_[ie][ip];
+        hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+      }
+      sum7x7 += ecalTPs_et_[ie][ip];
+      correctedSum7x7 += ecalTPs_correctedEt_[ie][ip];
+      ecalSum7x7 += ecalTPs_et_[ie][ip];
+      ecalCorrectedSum7x7 += ecalTPs_correctedEt_[ie][ip];
+      sum7x7 += hcalTPs_et_[ie][ip];
+      correctedSum7x7 += hcalTPs_correctedEt_[ie][ip];
+      hcalSum7x7 += hcalTPs_et_[ie][ip];
+      hcalCorrectedSum7x7 += hcalTPs_correctedEt_[ie][ip];
+    }
+  }
+
+  branches_[name+"_matchedEcalSum3x3"].push_back(ecalSum3x3);
+  branches_[name+"_matchedEcalSum5x5"].push_back(ecalSum5x5);
+  branches_[name+"_matchedEcalSum7x7"].push_back(ecalSum7x7);
+  branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(ecalCorrectedSum3x3);
+  branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(ecalCorrectedSum5x5);
+  branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(ecalCorrectedSum7x7);
+  branches_[name+"_matchedHcalSum3x3"].push_back(hcalSum3x3);
+  branches_[name+"_matchedHcalSum5x5"].push_back(hcalSum5x5);
+  branches_[name+"_matchedHcalSum7x7"].push_back(hcalSum7x7);
+  branches_[name+"_matchedHcalCorrectedSum3x3"].push_back(hcalCorrectedSum3x3);
+  branches_[name+"_matchedHcalCorrectedSum5x5"].push_back(hcalCorrectedSum5x5);
+  branches_[name+"_matchedHcalCorrectedSum7x7"].push_back(hcalCorrectedSum7x7);
+  branches_[name+"_matchedSum3x3"].push_back(sum3x3);
+  branches_[name+"_matchedSum5x5"].push_back(sum5x5);
+  branches_[name+"_matchedSum7x7"].push_back(sum7x7);
+  branches_[name+"_matchedCorrectedSum3x3"].push_back(correctedSum3x3);
+  branches_[name+"_matchedCorrectedSum5x5"].push_back(correctedSum5x5);
+  branches_[name+"_matchedCorrectedSum7x7"].push_back(correctedSum7x7);
 }
 
 // ------------ method called for each event  ------------
