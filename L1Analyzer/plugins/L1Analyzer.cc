@@ -48,6 +48,7 @@
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/Common/interface/ValueMap.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "DataFormats/PatCandidates/interface/Jet.h"
 
 #include "DataFormats/Math/interface/deltaR.h"
 
@@ -91,6 +92,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       edm::EDGetTokenT<l1t::CaloTowerBxCollection> stage2Layer1DigisToken_;
       edm::EDGetTokenT<reco::CandidateView> electronsToken_;
       edm::EDGetTokenT<reco::CandidateView> photonsToken_;
+      edm::EDGetTokenT<edm::View<pat::Jet>> jetsToken_;
       edm::EDGetTokenT<edm::ValueMap<bool> > electronIdMapToken_;
       edm::EDGetTokenT<reco::CandidateView> electronPairsToken_;
       edm::EDGetTokenT<reco::GenParticleCollection> genParticlesToken_;
@@ -182,6 +184,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   stage2Layer1DigisToken_(consumes<l1t::CaloTowerBxCollection>(iConfig.getParameter<edm::InputTag>("stage2Layer1Digis"))),
   electronsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("electrons"))),
   photonsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("photons"))),
+  jetsToken_(consumes<edm::View<pat::Jet>>(iConfig.getParameter<edm::InputTag>("jets"))),
   electronIdMapToken_(consumes<edm::ValueMap<bool> >(iConfig.getParameter<edm::InputTag>("electronIdMap"))),
   electronPairsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("electronPairs"))),
   genParticlesToken_(consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genParticles"))),
@@ -241,6 +244,9 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   // electrons
   buildMatchToEcal("electron");
   buildMatchToEcal("electronFromZ");
+
+  // jets
+  buildMatchToHcal("jet");
 
   // pions
   if (isMC_) buildMatchToHcal("genPion");
@@ -566,6 +572,9 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<reco::CandidateView> photons;
   iEvent.getByToken(photonsToken_, photons);
 
+  edm::Handle<edm::View<pat::Jet>> jets;
+  iEvent.getByToken(jetsToken_, jets);
+
   edm::Handle<edm::ValueMap<bool> > electronIdMap;
   iEvent.getByToken(electronIdMapToken_, electronIdMap);
 
@@ -750,6 +759,31 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     if (it->numberOfDaughters()<2) continue;
     const auto electron = it->daughter(1);
     matchObjectToEcal("electronFromZ",*electron);
+  }
+
+  // jets
+  for ( const auto& jet : *jets ){
+    double NHF = jet.neutralHadronEnergyFraction();
+    double NEMF = jet.neutralEmEnergyFraction();
+    double CHF = jet.chargedHadronEnergyFraction();
+    //double MUF = jet.muonEnergyFraction();
+    double CEMF = jet.chargedEmEnergyFraction();
+    int NumConst = jet.chargedMultiplicity()+jet.neutralMultiplicity();
+    int NumNeutralParticles = jet.neutralMultiplicity();
+    int CHM = jet.chargedMultiplicity();
+    double eta = jet.eta();
+    bool looseJetID = false;
+    if (abs(eta)<=2.7) {
+      looseJetID = (NHF<0.99 && NEMF<0.99 && NumConst>1) && ((abs(eta)<=2.4 && CHF>0 && CHM>0 && CEMF<0.99) || abs(eta)>2.4) && abs(eta)<=2.7;
+    }
+    else if (abs(eta)<=3.0) {
+      looseJetID = (NHF<0.98 && NEMF>0.01 && NumNeutralParticles>2 && abs(eta)>2.7 && abs(eta)<=3.0 );
+    }
+    else {
+      looseJetID = (NEMF<0.90 && NumNeutralParticles>10 && abs(eta)>3.0 );
+    }
+    if (!looseJetID) continue;
+    matchObjectToHcal("jet",jet);
   }
 
   // gen partices
