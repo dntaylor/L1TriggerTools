@@ -104,10 +104,7 @@ process.simCaloStage2Layer1Digis.verbose = cms.bool(True)
 process.simCaloStage2Layer1Digis.ecalToken = cms.InputTag("simEcalTriggerPrimitiveDigis")
 process.simCaloStage2Layer1Digis.hcalToken = cms.InputTag("simHcalTriggerPrimitiveDigis")
 
-#process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_0_inconsistent_cfi.py')
-
 process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff')         # CaloTPGTranscoder
-process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_1_cfi')     # L1 CaloParams
 process.HcalTPGCoderULUT.LUTGenerationMode = cms.bool(False)
 
 from L1Trigger.Configuration.customiseReEmul import L1TEventSetupForHF1x1TPs,L1TReEmulFromRAW,L1TReEmulFromRAWsimTP
@@ -120,7 +117,13 @@ process.simHcalTriggerPrimitiveDigis.inputLabel = cms.VInputTag(
     cms.InputTag('hcalDigis'),
     cms.InputTag('hcalDigis')
     )
-process.L1TReEmul = cms.Sequence(process.simHcalTriggerPrimitiveDigis * process.simEcalTriggerPrimitiveDigis * process.simCaloStage2Layer1Digis)
+process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_cfi')     # L1 CaloParams
+process.L1TReEmul = cms.Sequence(
+    process.simHcalTriggerPrimitiveDigis
+    *process.simEcalTriggerPrimitiveDigis
+    *process.simCaloStage2Layer1Digis
+    *process.simCaloStage2Digis
+)
 
 ##############################
 ### electron customization ###
@@ -162,11 +165,17 @@ process.load('L1TriggerTools.L1Analyzer.L1Analyzer_cfi')
 process.l1Analyzer.ecalDigis = cms.InputTag("simEcalTriggerPrimitiveDigis")
 process.l1Analyzer.hcalDigis = cms.InputTag("simHcalTriggerPrimitiveDigis")
 process.l1Analyzer.stage2Layer1Digis = cms.InputTag("simCaloStage2Layer1Digis")
+process.l1Analyzer.stage2EG = cms.InputTag("simCaloStage2Digis")
+process.l1Analyzer.stage2Tau = cms.InputTag("simCaloStage2Digis")
+process.l1Analyzer.stage2Jet = cms.InputTag("simCaloStage2Digis")
+process.l1Analyzer.stage2Muon = cms.InputTag("simCaloStage2Digis")
+process.l1Analyzer.stage2EtSum = cms.InputTag("simCaloStage2Digis")
 process.l1Analyzer.electronIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose")
 process.l1Analyzer.electronPairs = cms.InputTag("electronPairs")
-process.l1Analyzer.storeEcal = cms.bool(False)
-process.l1Analyzer.storeHcal = cms.bool(False)
-process.l1Analyzer.storeStage2Layer1 = cms.bool(False)
+process.l1Analyzer.storeEcal = cms.bool(True)
+process.l1Analyzer.storeHcal = cms.bool(True)
+process.l1Analyzer.storeStage2Layer1 = cms.bool(True)
+process.l1Analyzer.storeStage2 = cms.bool(True)
 process.l1Analyzer.isMC = cms.bool(bool(options.isMC))
 
 ##################

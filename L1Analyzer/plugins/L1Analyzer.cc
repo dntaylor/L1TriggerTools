@@ -44,6 +44,13 @@
 #include "L1Trigger/L1TCalorimeter/interface/CaloParamsHelper.h"
 #include "CondFormats/L1TObjects/interface/CaloParams.h"
 #include "CondFormats/DataRecord/interface/L1TCaloStage2ParamsRcd.h"
+#include "DataFormats/L1Trigger/interface/L1Candidate.h"
+
+#include "DataFormats/L1Trigger/interface/EGamma.h"
+#include "DataFormats/L1Trigger/interface/Tau.h"
+#include "DataFormats/L1Trigger/interface/Jet.h"
+#include "DataFormats/L1Trigger/interface/Muon.h"
+#include "DataFormats/L1Trigger/interface/EtSum.h"
 
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/Common/interface/ValueMap.h"
@@ -90,6 +97,11 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       edm::EDGetTokenT<EcalTrigPrimDigiCollection> ecalDigisToken_; 
       edm::EDGetTokenT<HcalTrigPrimDigiCollection> hcalDigisToken_;
       edm::EDGetTokenT<l1t::CaloTowerBxCollection> stage2Layer1DigisToken_;
+      edm::EDGetTokenT<l1t::EGammaBxCollection> stage2EGToken_;
+      edm::EDGetTokenT<l1t::TauBxCollection> stage2TauToken_;
+      edm::EDGetTokenT<l1t::JetBxCollection> stage2JetToken_;
+      //edm::EDGetTokenT<l1t::MuonBxCollection> stage2MuonToken_;
+      edm::EDGetTokenT<l1t::EtSumBxCollection> stage2EtSumToken_;
       edm::EDGetTokenT<reco::CandidateView> electronsToken_;
       edm::EDGetTokenT<reco::CandidateView> photonsToken_;
       edm::EDGetTokenT<edm::View<pat::Jet>> jetsToken_;
@@ -99,6 +111,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       bool storeEcal_;
       bool storeHcal_;
       bool storeStage2Layer1_;
+      bool storeStage2_;
       double LSB_;
       bool isMC_;
 
@@ -162,6 +175,65 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> stage2Layer1DigiHwPt_;
       std::vector<int> stage2Layer1DigiHwQual_;
 
+      // EGamma
+      std::vector<int> l1egPt_;
+      std::vector<int> l1egEta_;
+      std::vector<int> l1egPhi_;
+      std::vector<int> l1egHwEta_;
+      std::vector<int> l1egHwIso_;
+      std::vector<int> l1egHwPhi_;
+      std::vector<int> l1egHwPt_;
+      std::vector<int> l1egHwQual_;
+      std::vector<int> l1egFootprintEt_;
+      std::vector<int> l1egIsoEt_;
+      std::vector<int> l1egNTT_;
+      std::vector<int> l1egRawEt_;
+      std::vector<int> l1egShape_;
+      std::vector<int> l1egTowerIEta_;
+      std::vector<int> l1egTowerIPhi_;
+
+      // Tau
+      std::vector<int> l1tauPt_;
+      std::vector<int> l1tauEta_;
+      std::vector<int> l1tauPhi_;
+      std::vector<int> l1tauHwEta_;
+      std::vector<int> l1tauHwIso_;
+      std::vector<int> l1tauHwPhi_;
+      std::vector<int> l1tauHwPt_;
+      std::vector<int> l1tauHwQual_;
+      std::vector<int> l1tauHasEM_;
+      std::vector<int> l1tauIsMerged_;
+      std::vector<int> l1tauIsoEt_;
+      std::vector<int> l1tauNTT_;
+      std::vector<int> l1tauRawEt_;
+      std::vector<int> l1tauTowerIEta_;
+      std::vector<int> l1tauTowerIPhi_;
+
+      // Jet
+      std::vector<int> l1jetPt_;
+      std::vector<int> l1jetEta_;
+      std::vector<int> l1jetPhi_;
+      std::vector<int> l1jetHwEta_;
+      std::vector<int> l1jetHwIso_;
+      std::vector<int> l1jetHwPhi_;
+      std::vector<int> l1jetHwPt_;
+      std::vector<int> l1jetHwQual_;
+      std::vector<int> l1jetPUEt_;
+      std::vector<int> l1jetRawEt_;
+      std::vector<int> l1jetSeedEt_;
+      std::vector<int> l1jetTowerIEta_;
+      std::vector<int> l1jetTowerIPhi_;
+
+      // EtSum
+      std::vector<int> l1TotalEt_;
+      std::vector<int> l1TotalEtHwPt_;
+      std::vector<int> l1TotalHt_;
+      std::vector<int> l1TotalHtHwPt_;
+      std::vector<int> l1MissingEt_;
+      std::vector<int> l1MissingEtPhi_;
+      std::vector<int> l1MissingEtHwPhi_;
+      std::vector<int> l1MissingEtHwPt_;
+
       uint32_t expectedTotalET_;
 
       std::map<std::string, std::vector<float> > branches_;
@@ -182,6 +254,11 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   ecalDigisToken_(consumes<EcalTrigPrimDigiCollection>(iConfig.getParameter<edm::InputTag>("ecalDigis"))),
   hcalDigisToken_(consumes<HcalTrigPrimDigiCollection>(iConfig.getParameter<edm::InputTag>("hcalDigis"))),
   stage2Layer1DigisToken_(consumes<l1t::CaloTowerBxCollection>(iConfig.getParameter<edm::InputTag>("stage2Layer1Digis"))),
+  stage2EGToken_(consumes<l1t::EGammaBxCollection>(iConfig.getParameter<edm::InputTag>("stage2EG"))),
+  stage2TauToken_(consumes<l1t::TauBxCollection>(iConfig.getParameter<edm::InputTag>("stage2Tau"))),
+  stage2JetToken_(consumes<l1t::JetBxCollection>(iConfig.getParameter<edm::InputTag>("stage2Jet"))),
+  //stage2MuonToken_(consumes<l1t::MuonBxCollection>(iConfig.getParameter<edm::InputTag>("stage2Muon"))),
+  stage2EtSumToken_(consumes<l1t::EtSumBxCollection>(iConfig.getParameter<edm::InputTag>("stage2EtSum"))),
   electronsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("electrons"))),
   photonsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("photons"))),
   jetsToken_(consumes<edm::View<pat::Jet>>(iConfig.getParameter<edm::InputTag>("jets"))),
@@ -191,6 +268,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   storeEcal_(iConfig.exists("storeEcal") ? iConfig.getParameter<bool>("storeEcal") : true),
   storeHcal_(iConfig.exists("storeHcal") ? iConfig.getParameter<bool>("storeHcal") : true),
   storeStage2Layer1_(iConfig.exists("storeStage2Layer1") ? iConfig.getParameter<bool>("storeStage2Layer1") : true),
+  storeStage2_(iConfig.exists("storeStage2") ? iConfig.getParameter<bool>("storeStage2") : true),
   LSB_(iConfig.exists("LSB") ? iConfig.getParameter<double>("LSB") : 0.5),
   isMC_(iConfig.getParameter<bool>("isMC"))
 {
@@ -240,6 +318,66 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
     tree_->Branch("expectedTotalET", &expectedTotalET_);
   }
 
+  if (storeStage2_) {
+    // EGamma
+    tree_->Branch("l1eg_pt",          &l1egPt_);
+    tree_->Branch("l1eg_eta",         &l1egEta_);
+    tree_->Branch("l1eg_phi",         &l1egPhi_);
+    tree_->Branch("l1eg_hwEta",       &l1egHwEta_);
+    tree_->Branch("l1eg_hwIso",       &l1egHwIso_);
+    tree_->Branch("l1eg_hwPhi",       &l1egHwPhi_);
+    tree_->Branch("l1eg_hwPt",        &l1egHwPt_);
+    tree_->Branch("l1eg_hwQual",      &l1egHwQual_);
+    tree_->Branch("l1eg_footprintEt", &l1egFootprintEt_);
+    tree_->Branch("l1eg_isoEt",       &l1egIsoEt_);
+    tree_->Branch("l1eg_nTT",         &l1egNTT_);
+    tree_->Branch("l1eg_rawEt",       &l1egRawEt_);
+    tree_->Branch("l1eg_shape",       &l1egShape_);
+    tree_->Branch("l1eg_towerIEta",   &l1egTowerIEta_);
+    tree_->Branch("l1eg_towerIPhi",   &l1egTowerIPhi_);
+
+    // Tau
+    tree_->Branch("l1tau_pt",        &l1tauPt_);
+    tree_->Branch("l1tau_eta",       &l1tauEta_);
+    tree_->Branch("l1tau_phi",       &l1tauPhi_);
+    tree_->Branch("l1tau_hwEta",     &l1tauHwEta_);
+    tree_->Branch("l1tau_hwIso",     &l1tauHwIso_);
+    tree_->Branch("l1tau_hwPhi",     &l1tauHwPhi_);
+    tree_->Branch("l1tau_hwPt",      &l1tauHwPt_);
+    tree_->Branch("l1tau_hwQual",    &l1tauHwQual_);
+    tree_->Branch("l1tau_hasEM",     &l1tauHasEM_);
+    tree_->Branch("l1tau_isMerged",  &l1tauIsMerged_);
+    tree_->Branch("l1tau_isoEt",     &l1tauIsoEt_);
+    tree_->Branch("l1tau_nTT",       &l1tauNTT_);
+    tree_->Branch("l1tau_rawEt",     &l1tauRawEt_);
+    tree_->Branch("l1tau_towerIEta", &l1tauTowerIEta_);
+    tree_->Branch("l1tau_towerIPhi", &l1tauTowerIPhi_);
+
+    // Jet
+    tree_->Branch("l1jet_pt",        &l1jetPt_);
+    tree_->Branch("l1jet_eta",       &l1jetEta_);
+    tree_->Branch("l1jet_phi",       &l1jetPhi_);
+    tree_->Branch("l1jet_hwEta",     &l1jetHwEta_);
+    tree_->Branch("l1jet_hwIso",     &l1jetHwIso_);
+    tree_->Branch("l1jet_hwPhi",     &l1jetHwPhi_);
+    tree_->Branch("l1jet_hwPt",      &l1jetHwPt_);
+    tree_->Branch("l1jet_hwQual",    &l1jetHwQual_);
+    tree_->Branch("l1jet_puEt",      &l1jetPUEt_);
+    tree_->Branch("l1jet_rawEt",     &l1jetRawEt_);
+    tree_->Branch("l1jet_seedEt",    &l1jetSeedEt_);
+    tree_->Branch("l1jet_towerIEta", &l1jetTowerIEta_);
+    tree_->Branch("l1jet_towerIPhi", &l1jetTowerIPhi_);
+
+    // EtSum
+    tree_->Branch("l1TotalEt_et",       &l1TotalEt_);
+    tree_->Branch("l1TotalEt_hwPt",     &l1TotalEtHwPt_);
+    tree_->Branch("l1TotalHt_et",       &l1TotalHt_);
+    tree_->Branch("l1TotalHt_hwPt",     &l1TotalHtHwPt_);
+    tree_->Branch("l1MissingEt_et",     &l1MissingEt_);
+    tree_->Branch("l1MissingEt_phi",    &l1MissingEtPhi_);
+    tree_->Branch("l1MissingEt_hwPhi",  &l1MissingEtHwPhi_);
+    tree_->Branch("l1MissingEt_hwPt",   &l1MissingEtHwPt_);
+  }
 
   // electrons
   buildMatchToEcal("electron");
@@ -363,6 +501,7 @@ L1Analyzer::buildMatchToHcal(std::string name) {
 void
 L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
   float pt = cand.pt();
+  if (pt==0) return;
   float eta = cand.eta();
   float phi = cand.phi();
   int pdgId = cand.pdgId();
@@ -398,14 +537,15 @@ L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
 
   int closestPtBin = getHcalPtBin(closestEt);
 
+  branches_[name+"_pt"].push_back(pt);
+  branches_[name+"_eta"].push_back(eta);
+  branches_[name+"_phi"].push_back(phi);
+  branches_[name+"_pdgId"].push_back(pdgId);
+
   // if match found and electron is good
-  if (pt>0 && match>0) {
+  if (match>0) {
     calculateSums(name,closestIEta,closestIPhi);
 
-    branches_[name+"_pt"].push_back(pt);
-    branches_[name+"_eta"].push_back(eta);
-    branches_[name+"_phi"].push_back(phi);
-    branches_[name+"_pdgId"].push_back(pdgId);
     branches_[name+"_matchedDR"].push_back(closestDR);
     branches_[name+"_matchedDEt"].push_back(closestDEt);
     branches_[name+"_matchedIEta"].push_back(closestIEta);
@@ -414,11 +554,40 @@ L1Analyzer::matchObjectToEcal(std::string name, const reco::Candidate& cand) {
     branches_[name+"_matchedCorrectedEt"].push_back(closestCorrectedEt);
     branches_[name+"_matchedPtBin"].push_back(closestPtBin);
   }
+  else {
+    branches_[name+"_matchedEcalSum3x3"].push_back(-1);
+    branches_[name+"_matchedEcalSum5x5"].push_back(-1);
+    branches_[name+"_matchedEcalSum7x7"].push_back(-1);
+    branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(-1);
+    branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(-1);
+    branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(-1);
+    branches_[name+"_matchedHcalSum3x3"].push_back(-1);
+    branches_[name+"_matchedHcalSum5x5"].push_back(-1);
+    branches_[name+"_matchedHcalSum7x7"].push_back(-1);
+    branches_[name+"_matchedHcalCorrectedSum3x3"].push_back(-1);
+    branches_[name+"_matchedHcalCorrectedSum5x5"].push_back(-1);
+    branches_[name+"_matchedHcalCorrectedSum7x7"].push_back(-1);
+    branches_[name+"_matchedSum3x3"].push_back(-1);
+    branches_[name+"_matchedSum5x5"].push_back(-1);
+    branches_[name+"_matchedSum7x7"].push_back(-1);
+    branches_[name+"_matchedCorrectedSum3x3"].push_back(-1);
+    branches_[name+"_matchedCorrectedSum5x5"].push_back(-1);
+    branches_[name+"_matchedCorrectedSum7x7"].push_back(-1);
+
+    branches_[name+"_matchedDR"].push_back(-1);
+    branches_[name+"_matchedDEt"].push_back(-1);
+    branches_[name+"_matchedIEta"].push_back(-1);
+    branches_[name+"_matchedIPhi"].push_back(-1);
+    branches_[name+"_matchedEt"].push_back(-1);
+    branches_[name+"_matchedCorrectedEt"].push_back(-1);
+    branches_[name+"_matchedPtBin"].push_back(-1);
+  }
 }
 
 void
 L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
   float pt = cand.pt();
+  if (pt==0) return;
   float eta = cand.eta();
   float phi = cand.phi();
   int pdgId = cand.pdgId();
@@ -453,14 +622,15 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
 
   int closestPtBin = getHcalPtBin(closestEt);
 
+  branches_[name+"_pt"].push_back(pt);
+  branches_[name+"_eta"].push_back(eta);
+  branches_[name+"_phi"].push_back(phi);
+  branches_[name+"_pdgId"].push_back(pdgId);
+
   // if match found and electron is good
-  if (pt>0 && match>0) {
+  if (match>0) {
     calculateSums(name,closestIEta,closestIPhi);
 
-    branches_[name+"_pt"].push_back(pt);
-    branches_[name+"_eta"].push_back(eta);
-    branches_[name+"_phi"].push_back(phi);
-    branches_[name+"_pdgId"].push_back(pdgId);
     branches_[name+"_matchedDR"].push_back(closestDR);
     branches_[name+"_matchedDEt"].push_back(closestDEt);
     branches_[name+"_matchedIEta"].push_back(closestIEta);
@@ -468,6 +638,34 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
     branches_[name+"_matchedEt"].push_back(closestEt);
     branches_[name+"_matchedCorrectedEt"].push_back(closestCorrectedEt);
     branches_[name+"_matchedPtBin"].push_back(closestPtBin);
+  }
+  else {
+    branches_[name+"_matchedEcalSum3x3"].push_back(-1);
+    branches_[name+"_matchedEcalSum5x5"].push_back(-1);
+    branches_[name+"_matchedEcalSum7x7"].push_back(-1);
+    branches_[name+"_matchedEcalCorrectedSum3x3"].push_back(-1);
+    branches_[name+"_matchedEcalCorrectedSum5x5"].push_back(-1);
+    branches_[name+"_matchedEcalCorrectedSum7x7"].push_back(-1);
+    branches_[name+"_matchedHcalSum3x3"].push_back(-1);
+    branches_[name+"_matchedHcalSum5x5"].push_back(-1);
+    branches_[name+"_matchedHcalSum7x7"].push_back(-1);
+    branches_[name+"_matchedHcalCorrectedSum3x3"].push_back(-1);
+    branches_[name+"_matchedHcalCorrectedSum5x5"].push_back(-1);
+    branches_[name+"_matchedHcalCorrectedSum7x7"].push_back(-1);
+    branches_[name+"_matchedSum3x3"].push_back(-1);
+    branches_[name+"_matchedSum5x5"].push_back(-1);
+    branches_[name+"_matchedSum7x7"].push_back(-1);
+    branches_[name+"_matchedCorrectedSum3x3"].push_back(-1);
+    branches_[name+"_matchedCorrectedSum5x5"].push_back(-1);
+    branches_[name+"_matchedCorrectedSum7x7"].push_back(-1);
+
+    branches_[name+"_matchedDR"].push_back(-1);
+    branches_[name+"_matchedDEt"].push_back(-1);
+    branches_[name+"_matchedIEta"].push_back(-1);
+    branches_[name+"_matchedIPhi"].push_back(-1);
+    branches_[name+"_matchedEt"].push_back(-1);
+    branches_[name+"_matchedCorrectedEt"].push_back(-1);
+    branches_[name+"_matchedPtBin"].push_back(-1);
   }
 }
 
@@ -566,6 +764,18 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<l1t::CaloTowerBxCollection> caloTowerBXs;
   iEvent.getByToken(stage2Layer1DigisToken_, caloTowerBXs);
 
+  edm::Handle<l1t::EGammaBxCollection> l1egs;
+  iEvent.getByToken(stage2EGToken_, l1egs);
+
+  edm::Handle<l1t::TauBxCollection> l1taus;
+  iEvent.getByToken(stage2TauToken_, l1taus);
+
+  edm::Handle<l1t::JetBxCollection> l1jets;
+  iEvent.getByToken(stage2JetToken_, l1jets);
+
+  edm::Handle<l1t::EtSumBxCollection> l1sums;
+  iEvent.getByToken(stage2EtSumToken_, l1sums);
+
   edm::Handle<reco::CandidateView> electrons;
   iEvent.getByToken(electronsToken_, electrons);
 
@@ -629,6 +839,61 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   stage2Layer1DigiHwQual_.clear();
 
   expectedTotalET_ = 0;
+
+  l1egPt_.clear();
+  l1egEta_.clear();
+  l1egPhi_.clear();
+  l1egHwEta_.clear();
+  l1egHwIso_.clear();
+  l1egHwPhi_.clear();
+  l1egHwPt_.clear();
+  l1egHwQual_.clear();
+  l1egFootprintEt_.clear();
+  l1egIsoEt_.clear();
+  l1egNTT_.clear();
+  l1egRawEt_.clear();
+  l1egShape_.clear();
+  l1egTowerIEta_.clear();
+  l1egTowerIPhi_.clear();
+
+  l1tauPt_.clear();
+  l1tauEta_.clear();
+  l1tauPhi_.clear();
+  l1tauHwEta_.clear();
+  l1tauHwIso_.clear();
+  l1tauHwPhi_.clear();
+  l1tauHwPt_.clear();
+  l1tauHwQual_.clear();
+  l1tauHasEM_.clear();
+  l1tauIsMerged_.clear();
+  l1tauIsoEt_.clear();
+  l1tauNTT_.clear();
+  l1tauRawEt_.clear();
+  l1tauTowerIEta_.clear();
+  l1tauTowerIPhi_.clear();
+
+  l1jetPt_.clear();
+  l1jetEta_.clear();
+  l1jetPhi_.clear();
+  l1jetHwEta_.clear();
+  l1jetHwIso_.clear();
+  l1jetHwPhi_.clear();
+  l1jetHwPt_.clear();
+  l1jetHwQual_.clear();
+  l1jetPUEt_.clear();
+  l1jetRawEt_.clear();
+  l1jetSeedEt_.clear();
+  l1jetTowerIEta_.clear();
+  l1jetTowerIPhi_.clear();
+
+  l1TotalEt_.clear();
+  l1TotalEtHwPt_.clear();
+  l1TotalHt_.clear();
+  l1TotalHtHwPt_.clear();
+  l1MissingEt_.clear();
+  l1MissingEtPhi_.clear();
+  l1MissingEtHwPhi_.clear();
+  l1MissingEtHwPt_.clear();
 
   for (auto& entry: branches_) {
     entry.second.clear();
@@ -744,6 +1009,79 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       stage2Layer1DigiHwPhi_.push_back(hwPhi);
       stage2Layer1DigiHwPt_.push_back(hwPt);
       stage2Layer1DigiHwQual_.push_back(hwQual);
+    }
+  }
+
+  // L1 EGamma
+  for ( const auto& l1eg : *l1egs ) {
+    l1egPt_.push_back(         l1eg.pt());
+    l1egEta_.push_back(        l1eg.eta());
+    l1egPhi_.push_back(        l1eg.phi());
+    l1egHwEta_.push_back(      l1eg.hwEta());
+    l1egHwIso_.push_back(      l1eg.hwIso());
+    l1egHwPhi_.push_back(      l1eg.hwPhi());
+    l1egHwPt_.push_back(       l1eg.hwPt());
+    l1egHwQual_.push_back(     l1eg.hwQual());
+    l1egFootprintEt_.push_back(l1eg.footprintEt());
+    l1egIsoEt_.push_back(      l1eg.isoEt());
+    l1egNTT_.push_back(        l1eg.nTT());
+    l1egRawEt_.push_back(      l1eg.rawEt());
+    l1egShape_.push_back(      l1eg.shape());
+    l1egTowerIEta_.push_back(  l1eg.towerIEta());
+    l1egTowerIPhi_.push_back(  l1eg.towerIPhi());
+  }
+
+  // L1 Tau
+  for ( const auto& l1tau : *l1taus ) {
+    l1tauPt_.push_back(       l1tau.pt());
+    l1tauEta_.push_back(      l1tau.eta());
+    l1tauPhi_.push_back(      l1tau.phi());
+    l1tauHwEta_.push_back(    l1tau.hwEta());
+    l1tauHwIso_.push_back(    l1tau.hwIso());
+    l1tauHwPhi_.push_back(    l1tau.hwPhi());
+    l1tauHwPt_.push_back(     l1tau.hwPt());
+    l1tauHwQual_.push_back(   l1tau.hwQual());
+    l1tauHasEM_.push_back(    l1tau.hasEM());
+    l1tauIsMerged_.push_back( l1tau.isMerged());
+    l1tauIsoEt_.push_back(    l1tau.isoEt());
+    l1tauNTT_.push_back(      l1tau.nTT());
+    l1tauRawEt_.push_back(    l1tau.rawEt());
+    l1tauTowerIEta_.push_back(l1tau.towerIEta());
+    l1tauTowerIPhi_.push_back(l1tau.towerIPhi());
+  }
+
+  // L1 Jet
+  for ( const auto& l1jet : *l1jets ) {
+    l1jetPt_.push_back(       l1jet.pt());
+    l1jetEta_.push_back(      l1jet.eta());
+    l1jetPhi_.push_back(      l1jet.phi());
+    l1jetHwEta_.push_back(    l1jet.hwEta());
+    l1jetHwIso_.push_back(    l1jet.hwIso());
+    l1jetHwPhi_.push_back(    l1jet.hwPhi());
+    l1jetHwPt_.push_back(     l1jet.hwPt());
+    l1jetHwQual_.push_back(   l1jet.hwQual());
+    l1jetPUEt_.push_back(     l1jet.puEt());
+    l1jetRawEt_.push_back(    l1jet.rawEt());
+    l1jetSeedEt_.push_back(   l1jet.seedEt());
+    l1jetTowerIEta_.push_back(l1jet.towerIEta());
+    l1jetTowerIPhi_.push_back(l1jet.towerIPhi());
+  }
+
+  // L1 Jet
+  for ( const auto& l1sum : *l1sums ) {
+    if ( l1sum.getType() == l1t::EtSum::kTotalEt ) {
+      l1TotalEt_.push_back(     l1sum.et());
+      l1TotalEtHwPt_.push_back( l1sum.hwPt());
+    }
+    if ( l1sum.getType() == l1t::EtSum::kTotalHt ) {
+      l1TotalHt_.push_back(     l1sum.et());
+      l1TotalHtHwPt_.push_back( l1sum.hwPt());
+    }
+    if ( l1sum.getType() == l1t::EtSum::kMissingEt ) {
+      l1MissingEt_.push_back(     l1sum.et());
+      l1MissingEtPhi_.push_back(  l1sum.phi());
+      l1MissingEtHwPhi_.push_back(l1sum.hwPhi());
+      l1MissingEtHwPt_.push_back( l1sum.hwPt());
     }
   }
 
