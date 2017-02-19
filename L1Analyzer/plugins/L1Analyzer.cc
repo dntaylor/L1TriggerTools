@@ -176,9 +176,9 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> stage2Layer1DigiHwQual_;
 
       // EGamma
-      std::vector<int> l1egPt_;
-      std::vector<int> l1egEta_;
-      std::vector<int> l1egPhi_;
+      std::vector<float> l1egPt_;
+      std::vector<float> l1egEta_;
+      std::vector<float> l1egPhi_;
       std::vector<int> l1egHwEta_;
       std::vector<int> l1egHwIso_;
       std::vector<int> l1egHwPhi_;
@@ -193,9 +193,9 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> l1egTowerIPhi_;
 
       // Tau
-      std::vector<int> l1tauPt_;
-      std::vector<int> l1tauEta_;
-      std::vector<int> l1tauPhi_;
+      std::vector<float> l1tauPt_;
+      std::vector<float> l1tauEta_;
+      std::vector<float> l1tauPhi_;
       std::vector<int> l1tauHwEta_;
       std::vector<int> l1tauHwIso_;
       std::vector<int> l1tauHwPhi_;
@@ -210,9 +210,9 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> l1tauTowerIPhi_;
 
       // Jet
-      std::vector<int> l1jetPt_;
-      std::vector<int> l1jetEta_;
-      std::vector<int> l1jetPhi_;
+      std::vector<float> l1jetPt_;
+      std::vector<float> l1jetEta_;
+      std::vector<float> l1jetPhi_;
       std::vector<int> l1jetHwEta_;
       std::vector<int> l1jetHwIso_;
       std::vector<int> l1jetHwPhi_;
@@ -225,12 +225,12 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> l1jetTowerIPhi_;
 
       // EtSum
-      std::vector<int> l1TotalEt_;
+      std::vector<float> l1TotalEt_;
       std::vector<int> l1TotalEtHwPt_;
-      std::vector<int> l1TotalHt_;
+      std::vector<float> l1TotalHt_;
       std::vector<int> l1TotalHtHwPt_;
-      std::vector<int> l1MissingEt_;
-      std::vector<int> l1MissingEtPhi_;
+      std::vector<float> l1MissingEt_;
+      std::vector<float> l1MissingEtPhi_;
       std::vector<int> l1MissingEtHwPhi_;
       std::vector<int> l1MissingEtHwPt_;
 
