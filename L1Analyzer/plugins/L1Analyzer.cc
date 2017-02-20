@@ -149,6 +149,10 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<std::vector<double> > hcalTPs_correctedEt_;
 
       // branch variables
+      Int_t run_;
+      Int_t lumi_;
+      ULong64_t event_;
+
       std::vector<int> ecalDigiEta_;
       std::vector<int> ecalDigiPhi_;
       std::vector<int> ecalDigiCompressedEt_;
@@ -279,6 +283,9 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   tree_ = fs_->make<TTree>("L1TTree", "L1TTree");
 
   // initialize branches
+  tree_->Branch("run", &run_, "run/I");
+  tree_->Branch("lumi", &lumi_, "lumi/I");
+  tree_->Branch("event", &event_, "event/l");
   
   // ecalTPs
   if (storeEcal_) {
@@ -755,6 +762,10 @@ L1Analyzer::calculateSums(std::string name, int closestIEta, int closestIPhi) {
 void
 L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+
+  event_ = iEvent.id().event();
+  run_   = iEvent.run();
+  lumi_  = iEvent.luminosityBlock();
 
   // grab collections
   iEvent.getByToken(ecalDigisToken_, ecalTPs_);
