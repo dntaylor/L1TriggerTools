@@ -105,6 +105,7 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       edm::EDGetTokenT<reco::CandidateView> electronsToken_;
       edm::EDGetTokenT<reco::CandidateView> photonsToken_;
       edm::EDGetTokenT<edm::View<pat::Jet>> jetsToken_;
+      edm::EDGetTokenT<reco::CandidateView> metToken_;
       edm::EDGetTokenT<edm::ValueMap<bool> > electronIdMapToken_;
       edm::EDGetTokenT<reco::CandidateView> electronPairsToken_;
       edm::EDGetTokenT<reco::GenParticleCollection> genParticlesToken_;
@@ -179,6 +180,8 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> stage2Layer1DigiHwPt_;
       std::vector<int> stage2Layer1DigiHwQual_;
 
+      uint32_t expectedTotalET_;
+
       // EGamma
       std::vector<float> l1egPt_;
       std::vector<float> l1egEta_;
@@ -238,7 +241,9 @@ class L1Analyzer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       std::vector<int> l1MissingEtHwPhi_;
       std::vector<int> l1MissingEtHwPt_;
 
-      uint32_t expectedTotalET_;
+      // met
+      std::vector<float> metEt_;
+      std::vector<float> metPhi_;
 
       std::map<std::string, std::vector<float> > branches_;
 };
@@ -266,6 +271,7 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
   electronsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("electrons"))),
   photonsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("photons"))),
   jetsToken_(consumes<edm::View<pat::Jet>>(iConfig.getParameter<edm::InputTag>("jets"))),
+  metToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("met"))),
   electronIdMapToken_(consumes<edm::ValueMap<bool> >(iConfig.getParameter<edm::InputTag>("electronIdMap"))),
   electronPairsToken_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("electronPairs"))),
   genParticlesToken_(consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genParticles"))),
@@ -395,6 +401,10 @@ L1Analyzer::L1Analyzer(const edm::ParameterSet& iConfig):
 
   // pions
   if (isMC_) buildMatchToHcal("genPion");
+
+  // met
+  tree_->Branch("met_et",  &metEt_);
+  tree_->Branch("met_phi", &metPhi_);
 }
 
 
@@ -796,6 +806,9 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<edm::View<pat::Jet>> jets;
   iEvent.getByToken(jetsToken_, jets);
 
+  edm::Handle<reco::CandidateView> met;
+  iEvent.getByToken(metToken_, met);
+
   edm::Handle<edm::ValueMap<bool> > electronIdMap;
   iEvent.getByToken(electronIdMapToken_, electronIdMap);
 
@@ -905,6 +918,9 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   l1MissingEtPhi_.clear();
   l1MissingEtHwPhi_.clear();
   l1MissingEtHwPt_.clear();
+
+  metEt_.clear();
+  metPhi_.clear();
 
   for (auto& entry: branches_) {
     entry.second.clear();
@@ -1141,6 +1157,12 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     for ( const auto& pion : *genParticles ){
       matchObjectToHcal("genPion",pion);
     }
+  }
+
+  // met
+  for (const auto& m: *met) {
+    metEt_.push_back(m.et());
+    metPhi_.push_back(m.phi());
   }
 
   // fill tree

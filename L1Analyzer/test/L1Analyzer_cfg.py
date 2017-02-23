@@ -9,6 +9,7 @@ options = VarParsing('analysis')
 options.outputFile = 'l1tTree.root'
 #options.inputFiles = '/store/mc/RunIISpring16MiniAODv2/SinglePion_PT0to200/MINIAODSIM/NoPURAW_NZS_withHLT_80X_mcRun2_asymptotic_v14-v1/40000/06B6157B-D667-E611-B32E-B083FED42FE4.root'
 options.inputFiles = '/store/data/Run2016E/SingleElectron/MINIAOD/23Sep2016-v1/100000/00827A71-F98C-E611-9639-0CC47A4D7650.root'
+#options.inputFiles = '/store/data/Run2016F/ZeroBias20/MINIAOD/PromptReco-v1/000/277/990/00000/DE4B2533-AF59-E611-A4A9-02163E011C43.root'
 options.secondaryInputFiles = []
 options.maxEvents = -1
 options.register('isMC', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Simulation")
@@ -117,7 +118,8 @@ process.simHcalTriggerPrimitiveDigis.inputLabel = cms.VInputTag(
     cms.InputTag('hcalDigis'),
     cms.InputTag('hcalDigis')
     )
-process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_cfi')     # L1 CaloParams
+#process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_1_cfi')     # L1 CaloParams old version
+process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_cfi')     # L1 CaloParams new version
 process.L1TReEmul = cms.Sequence(
     process.simHcalTriggerPrimitiveDigis
     *process.simEcalTriggerPrimitiveDigis
@@ -172,9 +174,9 @@ process.l1Analyzer.stage2Muon = cms.InputTag("simCaloStage2Digis")
 process.l1Analyzer.stage2EtSum = cms.InputTag("simCaloStage2Digis")
 process.l1Analyzer.electronIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose")
 process.l1Analyzer.electronPairs = cms.InputTag("electronPairs")
-process.l1Analyzer.storeEcal = cms.bool(True)
-process.l1Analyzer.storeHcal = cms.bool(True)
-process.l1Analyzer.storeStage2Layer1 = cms.bool(True)
+process.l1Analyzer.storeEcal = cms.bool(False)
+process.l1Analyzer.storeHcal = cms.bool(False)
+process.l1Analyzer.storeStage2Layer1 = cms.bool(False)
 process.l1Analyzer.storeStage2 = cms.bool(True)
 process.l1Analyzer.isMC = cms.bool(bool(options.isMC))
 
