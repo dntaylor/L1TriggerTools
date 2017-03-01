@@ -735,7 +735,7 @@ L1Analyzer::calculateSums(std::string name, int closestIEta, int closestIPhi) {
         sum5x5 += hcalTPs_et_[ie][ip];
         correctedSum5x5 += hcalTPs_correctedEt_[ie][ip];
         hcalSum5x5 += hcalTPs_et_[ie][ip];
-        hcalCorrectedSum3x3 += hcalTPs_correctedEt_[ie][ip];
+        hcalCorrectedSum5x5 += hcalTPs_correctedEt_[ie][ip];
       }
       sum7x7 += ecalTPs_et_[ie][ip];
       correctedSum7x7 += ecalTPs_correctedEt_[ie][ip];
@@ -1002,6 +1002,7 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         // fg2 should only be set for HF
         if(absCaloEta > 29 && fg2) featureBits |= 0b10;
         if (compressedEt>0) {
+          //std::cout << "iphi: " << caloPhi << " ieta: " << caloEta << " compressedEt: " << compressedEt << " et: " << et << " correctedEt: " << correctedEt << std::endl;
           hcalDigiEta_.push_back(caloEta);
           hcalDigiPhi_.push_back(caloPhi);
           hcalDigiCompressedEt_.push_back(compressedEt);
