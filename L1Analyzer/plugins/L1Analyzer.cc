@@ -626,7 +626,7 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
     double correctedEt = tp_et*getHcalSF(tp_et,tp_ieta);
     double dr = deltaR(tp_eta,tp_phi,eta,phi);
     double det = fabs(pt-tp_et);
-    if (dr<0.2 && dr<closestDR && pt<127 && det<closestDEt) {
+    if (dr<0.2 && dr<closestDR && pt<127) {
       closestDR = dr;
       closestDEt = det;
       closestIEta = tp_ieta;
