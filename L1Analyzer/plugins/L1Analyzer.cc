@@ -645,9 +645,11 @@ L1Analyzer::matchObjectToHcal(std::string name, const reco::Candidate& cand) {
   branches_[name+"_phi"].push_back(phi);
   branches_[name+"_pdgId"].push_back(pdgId);
 
-  // if match found and electron is good
+  // if match found
   if (match>0) {
     calculateSums(name,closestIEta,closestIPhi);
+
+    //std::cout << name << " dr " << closestDR << " det " << closestDEt << " ieta " << closestIEta << " iphi " << closestIPhi << " et " << closestEt << " corrEt " << closestCorrectedEt << " ptb " << closestPtBin << std::endl;
 
     branches_[name+"_matchedDR"].push_back(closestDR);
     branches_[name+"_matchedDEt"].push_back(closestDEt);
