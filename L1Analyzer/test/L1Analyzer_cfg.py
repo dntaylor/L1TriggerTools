@@ -7,9 +7,9 @@ from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('analysis')
 
 options.outputFile = 'l1tTree.root'
-#options.inputFiles = '/store/mc/RunIISpring16MiniAODv2/SinglePion_PT0to200/MINIAODSIM/NoPURAW_NZS_withHLT_80X_mcRun2_asymptotic_v14-v1/40000/06B6157B-D667-E611-B32E-B083FED42FE4.root'
+options.inputFiles = '/store/mc/RunIISpring16MiniAODv2/SinglePion_PT0to200/MINIAODSIM/NoPURAW_NZS_withHLT_80X_mcRun2_asymptotic_v14-v1/40000/06B6157B-D667-E611-B32E-B083FED42FE4.root'
 #options.inputFiles = '/store/data/Run2016E/SingleElectron/MINIAOD/23Sep2016-v1/100000/00827A71-F98C-E611-9639-0CC47A4D7650.root'
-options.inputFiles = '/store/data/Run2016F/ZeroBias20/MINIAOD/PromptReco-v1/000/277/990/00000/DE4B2533-AF59-E611-A4A9-02163E011C43.root'
+#options.inputFiles = '/store/data/Run2016F/ZeroBias20/MINIAOD/PromptReco-v1/000/277/990/00000/DE4B2533-AF59-E611-A4A9-02163E011C43.root'
 options.secondaryInputFiles = []
 options.maxEvents = -1
 options.register('isMC', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "Simulation")
@@ -104,8 +104,8 @@ process.simCaloStage2Layer1Digis.verbose = cms.bool(True)
 process.simCaloStage2Layer1Digis.ecalToken = cms.InputTag("simEcalTriggerPrimitiveDigis")
 process.simCaloStage2Layer1Digis.hcalToken = cms.InputTag("simHcalTriggerPrimitiveDigis")
 
-process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff')         # CaloTPGTranscoder
-process.HcalTPGCoderULUT.LUTGenerationMode = cms.bool(False)
+#process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff')         # CaloTPGTranscoder
+#process.HcalTPGCoderULUT.LUTGenerationMode = cms.bool(False)
 
 from L1Trigger.Configuration.customiseReEmul import L1TEventSetupForHF1x1TPs,L1TReEmulFromRAW,L1TReEmulFromRAWsimTP
 process = L1TEventSetupForHF1x1TPs(process)
@@ -113,10 +113,11 @@ process = L1TEventSetupForHF1x1TPs(process)
 process.load('L1Trigger.Configuration.SimL1Emulator_cff')
 process.load('L1Trigger.Configuration.CaloTriggerPrimitives_cff')
 process.simEcalTriggerPrimitiveDigis.Label = 'ecalDigis'
-process.simHcalTriggerPrimitiveDigis.inputLabel = cms.VInputTag(
-    cms.InputTag('hcalDigis'),
-    cms.InputTag('hcalDigis')
-    )
+if not options.isMC:
+    process.simHcalTriggerPrimitiveDigis.inputLabel = cms.VInputTag(
+        cms.InputTag('hcalDigis'),
+        cms.InputTag('hcalDigis')
+        )
 #process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_1_cfi')     # L1 CaloParams old version
 process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_cfi')     # L1 CaloParams new version
 process.L1TReEmul = cms.Sequence(
