@@ -53,7 +53,6 @@ process.load('Configuration.StandardSequences.GeometryRecoDB_cff')
 process.load('Configuration.Geometry.GeometryDB_cff')
 process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.RawToDigi_cff')
-process.load('Configuration.StandardSequences.SimL1Emulator_cff')
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
@@ -119,10 +118,11 @@ process = L1TEventSetupForHF1x1TPs(process)
 process.load('L1Trigger.Configuration.SimL1Emulator_cff')
 process.load('L1Trigger.Configuration.CaloTriggerPrimitives_cff')
 process.simEcalTriggerPrimitiveDigis.Label = 'ecalDigis'
-process.simHcalTriggerPrimitiveDigis.inputLabel = cms.VInputTag(
-    cms.InputTag('hcalDigis'),
-    cms.InputTag('hcalDigis')
-    )
+if not options.isMC:
+    process.simHcalTriggerPrimitiveDigis.inputLabel = cms.VInputTag(
+        cms.InputTag('hcalDigis'),
+        cms.InputTag('hcalDigis')
+        )
 #process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v1_1_cfi')     # L1 CaloParams old version
 process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_cfi')     # L1 CaloParams new version
 process.L1TReEmul = cms.Sequence(
@@ -179,9 +179,9 @@ process.l1Analyzer.stage2Muon = cms.InputTag("simCaloStage2Digis")
 process.l1Analyzer.stage2EtSum = cms.InputTag("simCaloStage2Digis")
 process.l1Analyzer.electronIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose")
 process.l1Analyzer.electronPairs = cms.InputTag("electronPairs")
-process.l1Analyzer.storeEcal = cms.bool(False)
-process.l1Analyzer.storeHcal = cms.bool(False)
-process.l1Analyzer.storeStage2Layer1 = cms.bool(False)
+process.l1Analyzer.storeEcal = cms.bool(True)
+process.l1Analyzer.storeHcal = cms.bool(True)
+process.l1Analyzer.storeStage2Layer1 = cms.bool(True)
 process.l1Analyzer.storeStage2 = cms.bool(True)
 process.l1Analyzer.isMC = cms.bool(bool(options.isMC))
 
