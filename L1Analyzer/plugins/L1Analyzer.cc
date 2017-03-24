@@ -1005,7 +1005,9 @@ L1Analyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         // fg2 should only be set for HF
         if(absCaloEta > 29 && fg2) featureBits |= 0b10;
         if (compressedEt>0) {
-          //std::cout << "iphi: " << caloPhi << " ieta: " << caloEta << " compressedEt: " << compressedEt << " et: " << et << " correctedEt: " << correctedEt << std::endl;
+          if (compressedEt==10 && caloPhi>61 && caloPhi<64 && abs(caloEta)>16 && abs(caloEta)<29) {
+            //std::cout << "iphi: " << caloPhi << " ieta: " << caloEta << " compressedEt: " << compressedEt << " et: " << et << " correctedEt: " << correctedEt << std::endl;
+          }
           hcalDigiEta_.push_back(caloEta);
           hcalDigiPhi_.push_back(caloPhi);
           hcalDigiCompressedEt_.push_back(compressedEt);
