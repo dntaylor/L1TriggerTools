@@ -41,6 +41,9 @@ def calibrate(args):
         tfile = ROOT.TFile.Open(fname)
         tree = tfile.Get(args.treeName)
         for row in tree:
+            # skip events with saturated hcal tp
+            if any([hcal_et>127 for hcal_et in row.hcalDigi_et]): continue
+            # iterate over gen pions
             n = len(getattr(row,'{0}_pt'.format(collectionName)))
             for i in range(n):
                 iphi = getattr(row,'{0}_matchedIPhi'.format(collectionName))[i]

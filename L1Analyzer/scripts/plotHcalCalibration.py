@@ -76,31 +76,31 @@ def calibrate(args):
                     val = 1.
                     err = 0.
                 else:
-                    val = hists[ptb][eta].GetMean()
-                    err = hists[ptb][eta].GetMeanError()
-                    #hists[i][j].Fit('gaus')
-                    #hists[i][j].Fit('landau')
-                    tf1 = ROOT.TF1("landaugausfunction", ROOT.langaufun, 0, 5, 4)
-                    rms = hists[ptb][eta].GetRMS()
-                    peakpos = hists[ptb][eta].GetXaxis().GetBinCenter(hists[ptb][eta].GetMaximumBin())
-                    startwidth = rms / 5.0
-                    startmpv = peakpos
-                    startnorm = hists[ptb][eta].Integral()
-                    startsigma = rms / 10.0
-                    tf1.SetParNames("LandauWidth","LandauMPV","Normalisation","GaussianSigma")
-                    tf1.SetParameters(startwidth, startmpv, startnorm, startsigma)
-                    print 'start parameters', ptb, eta
-                    print startwidth, startmpv, startnorm, startsigma
-                    hists[ptb][eta].Fit(tf1, "0L", "", 0, 5)
-                    hists[ptb][eta].Draw()
-                    tf1.Draw('same')
-                    val = float(tf1.GetParameter(1))
-                    err = float(tf1.GetParError(1))
-                    canvas.SaveAs('hist_{0}_{1}.png'.format(ptb,eta))
-                    if val!=val:
-                        val = 1.
-                        err = 0.
-                print 'fit', ptb, eta, val, err
+                    if args.mean:
+                        val = hists[ptb][eta].GetMean()
+                        err = hists[ptb][eta].GetMeanError()
+                    else: # landau gaussian
+                        tf1 = ROOT.TF1("landaugausfunction", ROOT.langaufun, 0, 5, 4)
+                        rms = hists[ptb][eta].GetRMS()
+                        peakpos = hists[ptb][eta].GetXaxis().GetBinCenter(hists[ptb][eta].GetMaximumBin())
+                        startwidth = rms / 5.0
+                        startmpv = peakpos
+                        startnorm = hists[ptb][eta].Integral()
+                        startsigma = rms / 10.0
+                        tf1.SetParNames("LandauWidth","LandauMPV","Normalisation","GaussianSigma")
+                        tf1.SetParameters(startwidth, startmpv, startnorm, startsigma)
+                        print 'start parameters', ptb, eta
+                        print startwidth, startmpv, startnorm, startsigma
+                        hists[ptb][eta].Fit(tf1, "0L", "", 0, 5)
+                        hists[ptb][eta].Draw()
+                        tf1.Draw('same')
+                        val = float(tf1.GetParameter(1))
+                        err = float(tf1.GetParError(1))
+                        canvas.SaveAs('hist_{0}_{1}.png'.format(ptb,eta))
+                        if val!=val:
+                            val = 1.
+                            err = 0.
+                print 'result', ptb, eta, val, err
                 text_file.write("%f, " % val)
                 etab = eta+1
                 hists_ptb[ptb].SetBinContent(etab,val)
@@ -140,6 +140,7 @@ def parse_command_line(argv):
     parser = argparse.ArgumentParser(description='Validate Ntuples')
 
     parser.add_argument('inputFile', type=str, help='Input flat file')
+    parser.add_argument('--mean', action='store_true', help='Use mean for calibrations')
 
     return parser.parse_args(argv)
 
