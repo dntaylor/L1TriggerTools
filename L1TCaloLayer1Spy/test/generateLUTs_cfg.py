@@ -44,10 +44,15 @@ process.source = cms.Source('EmptySource',
 # Writes LUT for the only event to be processed - ignores data itself.
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1) )
 
-process.load('L1Trigger.L1TCaloLayer1Spy.l1tCaloLayer1LUTWriter_cfi')
-process.l1tCaloLayer1LUTWriter.fileName = options.outputFile
+#process.load('L1Trigger.L1TCaloLayer1Spy.l1tCaloLayer1LUTWriter_cfi')
+#process.l1tCaloLayer1LUTWriter.fileName = options.outputFile
+#
+#process.p = cms.Path(process.l1tCaloLayer1LUTWriter)
 
-process.p = cms.Path(process.l1tCaloLayer1LUTWriter)
+process.load('L1TriggerTools.L1TCaloLayer1Spy.l1tCaloLayer1LUTWriter_cfi')
+process.l1tCaloLayer1LUTWriterNew.fileName = options.outputFile
+
+process.p = cms.Path(process.l1tCaloLayer1LUTWriterNew)
 
 process.schedule = cms.Schedule(process.p)
 
@@ -58,6 +63,15 @@ process.schedule = cms.Schedule(process.p)
 # To get L1 CaloParams, until in GT
 #process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_cfi')
 process.load('L1Trigger.L1TCalorimeter.caloStage2Params_2017_v2_1_inconsistent_cfi')
+
+nEt = len(process.caloStage2Params.layer1HCalScaleETBins)
+for ieta in range(17,28):
+    for ipt in range(nEt):
+         pass
+         #process.caloStage2Params.layer1HCalScaleFactors[nEt*28+ipt*28+ieta] *= 0.  # zeroes
+         #process.caloStage2Params.layer1HCalScaleFactors[nEt*28+ipt*28+ieta] = 1.   # ones
+         #process.caloStage2Params.layer1HCalScaleFactors[nEt*28+ipt*28+ieta] *= 2.  # double
+         #process.caloStage2Params.layer1HCalScaleFactors[nEt*28+ipt*28+ieta] *= 0.5 # halve
 
 # To get CaloTPGTranscoder
 process.load('SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff')
