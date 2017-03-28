@@ -292,14 +292,25 @@ L1TCaloLayer1LUTWriter::analyze(const edm::Event& iEvent, const edm::EventSetup&
   if ( !rcWrap(xmlTextWriterEndElement(writer_)) ) return;
 
   // Now add phi dependent context for each ctp7
-  // map CTP7 0 1 ... 17 -> processor0 processor1 ... processor17
+  // map CTP7 0 1 ... 17 -> CTP7_Phi0 CTP7_Phi1 ... CTP7_Phi17
   std::vector<unsigned int> ePhiBins  = caloParams.layer1ECalScalePhiBins();
   std::vector<unsigned int> hPhiBins  = caloParams.layer1HCalScalePhiBins();
   std::vector<unsigned int> hfPhiBins = caloParams.layer1HFScalePhiBins();
   for ( uint32_t card=0; card<18; card++ ){
+    // check which processors to write
+    if (!(
+         ( ePhiBins.size()==36 && ePhiBins[card] )
+         || ( ePhiBins.size()==36 && ePhiBins[18+card] )
+         || ( hPhiBins.size()==36 && hPhiBins[card] )
+         || ( hPhiBins.size()==36 && hPhiBins[18+card] )
+         || ( hfPhiBins.size()==36 && hfPhiBins[card] )
+         || ( hfPhiBins.size()==36 && hfPhiBins[18+card] )
+       ))
+      continue;
+
     // <context>
     std::stringstream idStream;
-    idStream << "processor";
+    idStream << "CTP7_Phi";
     idStream << card;
     if ( !rcWrap(xmlTextWriterStartElement(writer_, BAD_CAST "context")) ) return;
     if ( !rcWrap(xmlTextWriterWriteAttribute(writer_, BAD_CAST "id", BAD_CAST idStream.str().c_str())) ) return;
@@ -320,7 +331,7 @@ L1TCaloLayer1LUTWriter::analyze(const edm::Event& iEvent, const edm::EventSetup&
     if ( hPhiBins.size()==36 && hPhiBins[card] ) {
       if ( !writeHCALLUT("HCALLUTMinus",hPhiBins[card],md5context) ) return;
     }
-    if ( hfPhiBins.size()==36 && hPhiBins[18+card] ) {
+    if ( hPhiBins.size()==36 && hPhiBins[18+card] ) {
       if ( !writeHCALLUT("HCALLUTPlus",hPhiBins[18+card],md5context) ) return;
     }
 
@@ -532,4 +543,5 @@ L1TCaloLayer1LUTWriter::fillDescriptions(edm::ConfigurationDescriptions& descrip
 }
 
 //define this as a plug-in
-DEFINE_FWK_MODULE(L1TCaloLayer1LUTWriter);
+typedef L1TCaloLayer1LUTWriter L1TCaloLayer1LUTWriterNew;
+DEFINE_FWK_MODULE(L1TCaloLayer1LUTWriterNew);

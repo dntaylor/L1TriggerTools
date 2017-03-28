@@ -1,6 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-l1tCaloLayer1LUTWriter = cms.EDAnalyzer('L1TCaloLayer1LUTWriter',
+l1tCaloLayer1LUTWriterNew = cms.EDAnalyzer('L1TCaloLayer1LUTWriterNew',
     verbose = cms.untracked.bool(False),
     fileName = cms.string("luts.xml"),
     useLSB = cms.bool(True),
